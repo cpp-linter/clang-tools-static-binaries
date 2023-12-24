@@ -49,7 +49,7 @@ jobs:
           - clang-version: 17
             release: llvm-project-17.0.4.src
           - os: linux
-            runner: ubuntu-20.04
+            runner: ubuntu-22.04
             os-cmake-args: '-DLLVM_BUILD_STATIC=ON -DCMAKE_CXX_FLAGS="-s -flto" ${POSIX_CMAKE_ARGS}'
             build-args: '-j$(nproc)'
             bindir: '/build/bin'
@@ -57,7 +57,7 @@ jobs:
             shacmd: 'sha512sum'
           - os: macosx
             runner: macos-11
-            os-cmake-args: '-DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 ${POSIX_CMAKE_ARGS}'
+            os-cmake-args: '-DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto" -DCMAKE_OSX_DEPLOYMENT_TARGET=11 ${POSIX_CMAKE_ARGS}'
             build-args: '-j$(sysctl -n hw.ncpu)'
             bindir: '/build/bin'
             dotexe: ''
