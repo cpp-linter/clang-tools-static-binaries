@@ -3,6 +3,7 @@ name: clang-tools-static-amd64
 on:
   push:
     branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   build:
