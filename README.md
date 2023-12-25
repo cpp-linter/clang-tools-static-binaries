@@ -1,4 +1,6 @@
-# clang-tools (clang-format, clang-tidy) static binaries
+# clang-tools static binaries
+
+Includes clang-format, clang-tidy and clang-query.
 
 ## Download
 
