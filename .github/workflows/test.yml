@@ -30,14 +30,15 @@ jobs:
       - name: Download and check clang version ${{ matrix.clang-version }}
         shell: bash
         run: |
+          echo ==============================================
           gh release download --pattern 'clang-format-${{ env.bin_suffix }}'
           chmod +x clang-format-${{ env.bin_suffix }}
           ./clang-format-${{ env.bin_suffix }} --version
-
+          echo ==============================================
           gh release download --pattern 'clang-tidy-${{ env.bin_suffix }}'
           chmod +x clang-tidy-${{ env.bin_suffix }}
           ./clang-tidy-${{ env.bin_suffix }} --version
-
+          echo ==============================================
           gh release download --pattern 'clang-query-${{ env.bin_suffix }}'
           chmod +x clang-query-${{ env.bin_suffix }}
           ./clang-query-${{ env.bin_suffix }} --version
