@@ -26,6 +26,7 @@ jobs:
       GH_TOKEN: ${{ secrets.TOKEN }}
       bin_suffix: '${{ matrix.clang-version }}_${{ matrix.pattern }}'
     steps:
+      - uses: actions/checkout@v4
       - name: Download and check clang-version ${{ matrix.clang-version }}
         shell: bash
         run: |
