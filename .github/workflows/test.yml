@@ -37,23 +37,23 @@ jobs:
       - name: Download and check version ${{ matrix.version }} on Linux
         if: matrix.os == 'ubuntu-latest'
         run: |
-          gh release download --pattern 'clang-format--${{ matrix.version }}_linux-amd64'
+          gh release download --pattern 'clang-format-${{ matrix.version }}_linux-amd64'
           ./clang-format-${{ matrix.version }}_linux-amd64 --version
 
-          gh release download --pattern 'clang-tidy--${{ matrix.version }}_linux-amd64'
+          gh release download --pattern 'clang-tidy-${{ matrix.version }}_linux-amd64'
           ./clang-tidy-${{ matrix.version }}_linux-amd64 --version
 
-          gh release download --pattern 'clang-query--${{ matrix.version }}_linux-amd64'
+          gh release download --pattern 'clang-query-${{ matrix.version }}_linux-amd64'
           ./clang-query-${{ matrix.version }}_linux-amd64 --version
 
       - name: Download and check version ${{ matrix.version }} on MacOS
         if: matrix.os == 'macos-latest'
         run: |
-          gh release download --pattern 'clang-format--${{ matrix.version }}_macosx-amd64'
+          gh release download --pattern 'clang-format-${{ matrix.version }}_macosx-amd64'
           ./clang-format-${{ matrix.version }}_macosx-amd64 --version
 
-          gh release download --pattern 'clang-tidy--${{ matrix.version }}_macosx-amd64'
+          gh release download --pattern 'clang-tidy-${{ matrix.version }}_macosx-amd64'
           ./clang-tidy-${{ matrix.version }}_macosx-amd64 --version
 
-          gh release download --pattern 'clang-query--${{ matrix.version }}_macosx-amd64'
+          gh release download --pattern 'clang-query-${{ matrix.version }}_macosx-amd64'
           ./clang-query-${{ matrix.version }}_macosx-amd64 --version
