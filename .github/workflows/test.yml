@@ -36,6 +36,7 @@ jobs:
 
       - name: Download and check version ${{ matrix.version }} on Linux
         if: matrix.os == 'ubuntu-latest'
+        shell: bash
         run: |
           gh release download --pattern 'clang-format-${{ matrix.version }}_linux-amd64'
           ./clang-format-${{ matrix.version }}_linux-amd64 --version
@@ -48,6 +49,7 @@ jobs:
 
       - name: Download and check version ${{ matrix.version }} on MacOS
         if: matrix.os == 'macos-latest'
+        shell: bash
         run: |
           gh release download --pattern 'clang-format-${{ matrix.version }}_macosx-amd64'
           ./clang-format-${{ matrix.version }}_macosx-amd64 --version
