@@ -27,7 +27,7 @@ jobs:
       bin_suffix: '${{ matrix.clang-version }}_${{ matrix.pattern }}'
     steps:
       - uses: actions/checkout@v4
-      - name: Download and check clang-version ${{ matrix.clang-version }}
+      - name: Download and check clang version ${{ matrix.clang-version }}
         shell: bash
         run: |
           gh release download --pattern 'clang-format-${{ env.bin_suffix }}'
@@ -41,3 +41,5 @@ jobs:
           gh release download --pattern 'clang-query-${{ env.bin_suffix }}'
           chmod +x clang-query-${{ env.bin_suffix }}
           ./clang-query-${{ env.bin_suffix }} --version
+
+          ls clang*
