@@ -1,0 +1,42 @@
+name: Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  install:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        clang-version: [ 7, 8, 9, 10, 11, 12, 12.0.1, 13, 14, 15, 16, 17 ]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        include:
+          - os: ubuntu-latest
+            pattern: linux-amd64
+          - os: macos-latest
+            pattern: macosx-amd64
+          - os: windows-latest
+            pattern: windows-amd64.exe
+      fail-fast: false
+    env:
+      GH_TOKEN: ${{ secrets.TOKEN }}
+      bin_suffix: '${{ matrix.clang-version }}_${{ matrix.pattern }}'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and check clang version
+        shell: bash
+        run: |
+          gh release download --pattern 'clang-format-${{ env.bin_suffix }}'
+          chmod +x clang-format-${{ env.bin_suffix }}
+          echo "== Output clang-format version"
+          ./clang-format-${{ env.bin_suffix }} --version
+
+          gh release download --pattern 'clang-tidy-${{ env.bin_suffix }}'
+          chmod +x clang-tidy-${{ env.bin_suffix }}
+          echo "== Output clang-tidy version"
+          ./clang-tidy-${{ env.bin_suffix }} --version
+
+          gh release download --pattern 'clang-query-${{ env.bin_suffix }}'
+          chmod +x clang-query-${{ env.bin_suffix }}
+          echo "== Output clang-query version"
+          ./clang-query-${{ env.bin_suffix }} --version
