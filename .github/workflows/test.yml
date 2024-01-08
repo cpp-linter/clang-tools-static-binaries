@@ -1,10 +1,6 @@
 name: Test
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
   workflow_dispatch:
 
 jobs:
@@ -27,20 +23,20 @@ jobs:
       bin_suffix: '${{ matrix.clang-version }}_${{ matrix.pattern }}'
     steps:
       - uses: actions/checkout@v4
-      - name: Download and check clang version ${{ matrix.clang-version }}
+      - name: Download and check clang version
         shell: bash
         run: |
-          echo ==============================================
           gh release download --pattern 'clang-format-${{ env.bin_suffix }}'
           chmod +x clang-format-${{ env.bin_suffix }}
+          echo "== Output clang-format version"
           ./clang-format-${{ env.bin_suffix }} --version
-          echo ==============================================
+
           gh release download --pattern 'clang-tidy-${{ env.bin_suffix }}'
           chmod +x clang-tidy-${{ env.bin_suffix }}
+          echo "== Output clang-tidy version"
           ./clang-tidy-${{ env.bin_suffix }} --version
-          echo ==============================================
+
           gh release download --pattern 'clang-query-${{ env.bin_suffix }}'
           chmod +x clang-query-${{ env.bin_suffix }}
+          echo "== Output clang-query version"
           ./clang-query-${{ env.bin_suffix }} --version
-
-          ls clang*
