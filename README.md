@@ -1,10 +1,18 @@
 # clang-tools static binaries
 
-[![Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml)
+[![Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build-amd64.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build-amd64.yml)
 [![Test](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml)
 ![](https://img.shields.io/badge/platform-linux--64%20%7C%20win--64%20%7C%20osx--64%20-blue)
 
-Includes clang-format, clang-tidy and clang-query.
+Includes clang-format, clang-tidy, clang-query and clang-apply-replacements. 
+
+The supported versions are as follows:
+
+|OS/Version |17|16|15|14|13|12|11|10|9|8|7|
+|---|---|---|---|---|---|---|---|---|---|---|---|
+|Linux 64|✔️|✔️|✔️|✔️|✔️|✔️|✔️|✔️| ✔️|✔️|✔️|✔️|    
+|Window 64|✔️|✔️|✔️|✔️|✔️|✔️|✔️|✔️| ✔️|✔️|✔️|✔️|
+|macOS 64|✔️|✔️|✔️|✔️|✔️|✔️|✔️|✔️| ✔️|✔️|✔️|✔️|
 
 ## Download
 
@@ -20,6 +28,8 @@ This can very quickly get out of hand, hence I created this repository.
 These binaries aim to:
 - be as small as possible
 - not require any additional dependencies apart from OS itself
+
+This repository ([cpp-linter/clang-tools-static-binaries](https://github.com/cpp-linter/clang-tools-static-binaries)) is forked from [muttleyxd/clang-tools-static-binaries](https://github.com/muttleyxd/clang-tools-static-binaries).
 
 ## How can I trust this repository?
 
