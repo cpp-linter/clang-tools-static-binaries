@@ -40,3 +40,8 @@ jobs:
           chmod +x clang-query-${{ env.bin_suffix }}
           echo "== Output clang-query version"
           ./clang-query-${{ env.bin_suffix }} --version
+
+          gh release download --pattern 'clang-apply-replacements-${{ env.bin_suffix }}'
+          chmod +x clang-apply-replacements-${{ env.bin_suffix }}
+          echo "== Output clang-apply-replacements version"
+          ./clang-apply-replacements-${{ env.bin_suffix }} --version
