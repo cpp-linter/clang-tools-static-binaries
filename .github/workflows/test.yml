@@ -8,7 +8,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        clang-version: [ 7, 8, 9, 10, 11, 12, 12.0.1, 13, 14, 15, 16, 17 ]
+        clang-version: [ 7, 8, 9, 10, 11, 12, 12.0.1, 13, 14, 15, 16, 17, 18 ]
         os: [ ubuntu-latest, macos-latest, windows-latest ]
         include:
           - os: ubuntu-latest
