@@ -155,7 +155,7 @@ jobs:
         cat clang-tidy-${{ env.suffix }}.sha512sum
         cat clang-apply-replacements-${{ env.suffix }}.sha512sum
     - name: upload artifacts
-      if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name == 'pull_request'
+      if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
       uses: actions/upload-artifact@v3
       with:
         name: clang-tools
@@ -163,7 +163,7 @@ jobs:
         retention-days: 1
   draft-release:
     runs-on: ubuntu-22.04
-    if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name == 'pull_request'
+    if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
     needs: build
     steps:
       - name: download artifacts
