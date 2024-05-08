@@ -14,42 +14,42 @@ jobs:
         clang-version: [ 18 ]
         os: [ macosx ]
         include:
-          - clang-version: 7
-            release: llvm-project-7.1.0
-          - clang-version: 8
-            release: llvm-project-8.0.1
-            extra-cmake-args: '-DCLANG_ANALYZER_ENABLE_Z3_SOLVER=OFF'
-          - clang-version: 9
-            release: llvm-project-9.0.1
-            extra-cmake-args: '-DLLVM_ENABLE_Z3_SOLVER=OFF'
-          - clang-version: 10
-            release: llvm-project-10.0.1
-            extra-cmake-args: '-DLLVM_ENABLE_Z3_SOLVER=OFF'
-          - clang-version: 11
-            release: llvm-project-11.1.0.src
-          - clang-version: 12
-            release: llvm-project-12.0.0.src
-          - clang-version: 12.0.1
-            release: llvm-project-12.0.1.src
-          - clang-version: 13
-            release: llvm-project-13.0.0.src
-          - clang-version: 14
-            release: llvm-project-14.0.0.src
-          - clang-version: 15
-            release: llvm-project-15.0.2.src
-          - clang-version: 16
-            release: llvm-project-16.0.3.src
-          - clang-version: 17
-            release: llvm-project-17.0.4.src
+          # - clang-version: 7
+          #   release: llvm-project-7.1.0
+          # - clang-version: 8
+          #   release: llvm-project-8.0.1
+          #   extra-cmake-args: '-DCLANG_ANALYZER_ENABLE_Z3_SOLVER=OFF'
+          # - clang-version: 9
+          #   release: llvm-project-9.0.1
+          #   extra-cmake-args: '-DLLVM_ENABLE_Z3_SOLVER=OFF'
+          # - clang-version: 10
+          #   release: llvm-project-10.0.1
+          #   extra-cmake-args: '-DLLVM_ENABLE_Z3_SOLVER=OFF'
+          # - clang-version: 11
+          #   release: llvm-project-11.1.0.src
+          # - clang-version: 12
+          #   release: llvm-project-12.0.0.src
+          # - clang-version: 12.0.1
+          #   release: llvm-project-12.0.1.src
+          # - clang-version: 13
+          #   release: llvm-project-13.0.0.src
+          # - clang-version: 14
+          #   release: llvm-project-14.0.0.src
+          # - clang-version: 15
+          #   release: llvm-project-15.0.2.src
+          # - clang-version: 16
+          #   release: llvm-project-16.0.3.src
+          # - clang-version: 17
+          #   release: llvm-project-17.0.4.src
           - clang-version: 18
             release: llvm-project-18.1.0.src
-          - os: linux
-            runner: ubuntu-22.04
-            os-cmake-args: '-DLLVM_BUILD_STATIC=ON -DCMAKE_CXX_FLAGS="-s -flto" ${POSIX_CMAKE_ARGS}'
-            build-args: '-j$(nproc)'
-            bindir: '/build/bin'
-            dotexe: ''
-            shacmd: 'sha512sum'
+          # - os: linux
+          #   runner: ubuntu-22.04
+          #   os-cmake-args: '-DLLVM_BUILD_STATIC=ON -DCMAKE_CXX_FLAGS="-s -flto" ${POSIX_CMAKE_ARGS}'
+          #   build-args: '-j$(nproc)'
+          #   bindir: '/build/bin'
+          #   dotexe: ''
+          #   shacmd: 'sha512sum'
           - os: macosx
             runner: macos-14
             os-cmake-args: '-DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto" -DCMAKE_OSX_DEPLOYMENT_TARGET=11 ${POSIX_CMAKE_ARGS}'
@@ -57,15 +57,15 @@ jobs:
             bindir: '/build/bin'
             dotexe: ''
             shacmd: 'shasum -a512'
-          - os: windows
-            runner: windows-latest
-            os-cmake-args: '-Thost=x64 -DCMAKE_CXX_FLAGS="/MP /std:c++14" -DLLVM_USE_CRT_MINSIZEREL="MT"'
-            build-args: '--config MinSizeRel'
-            bindir: '/build/MinSizeRel/bin'
-            dotexe: '.exe'
-            shacmd: 'sha512sum.exe'
-            extra-tar-args: '--exclude=${RELEASE}/clang/test/Driver/Inputs/* --exclude=${RELEASE}/libcxx/test/std/input.output/filesystems/Inputs/static_test_env/* --exclude=${RELEASE}/libclc/amdgcn-mesa3d'
-            extra-tar-args-cfe: '--exclude=cfe-${version}.src/test/Driver/Inputs/*'
+          # - os: windows
+          #   runner: windows-latest
+          #   os-cmake-args: '-Thost=x64 -DCMAKE_CXX_FLAGS="/MP /std:c++14" -DLLVM_USE_CRT_MINSIZEREL="MT"'
+          #   build-args: '--config MinSizeRel'
+          #   bindir: '/build/MinSizeRel/bin'
+          #   dotexe: '.exe'
+          #   shacmd: 'sha512sum.exe'
+          #   extra-tar-args: '--exclude=${RELEASE}/clang/test/Driver/Inputs/* --exclude=${RELEASE}/libcxx/test/std/input.output/filesystems/Inputs/static_test_env/* --exclude=${RELEASE}/libclc/amdgcn-mesa3d'
+          #   extra-tar-args-cfe: '--exclude=cfe-${version}.src/test/Driver/Inputs/*'
     runs-on: ${{ matrix.runner }}
     if: ${{ github.actor != 'dependabot[bot]' }}
     env:
