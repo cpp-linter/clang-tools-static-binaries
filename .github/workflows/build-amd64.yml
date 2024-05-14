@@ -15,7 +15,7 @@ jobs:
   build:
     strategy:
       matrix:
-        clang-version: [ 18, 17, 16, 15, 14, 13, 12.0.1, 12, 11, 10, 9, 8, 7 ]
+        clang-version: [ 18, 17, 16, 15, 14 ]
         os: [ linux, macosx, windows ]
         include:
           - clang-version: 18
