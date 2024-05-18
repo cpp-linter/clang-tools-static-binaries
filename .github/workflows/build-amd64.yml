@@ -26,8 +26,8 @@ jobs:
             release: llvm-project-16.0.3.src
           - clang-version: 15
             release: llvm-project-15.0.2.src
-          # - clang-version: 14
-          #   release: llvm-project-14.0.0.src
+          - clang-version: 14
+            release: llvm-project-14.0.0.src
           # - clang-version: 13
           #   release: llvm-project-13.0.0.src
           # - clang-version: 12.0.1
