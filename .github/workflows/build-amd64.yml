@@ -49,14 +49,14 @@ jobs:
             release: llvm-project-7.1.0
           - os: linux
             runner: ubuntu-22.04
-            os-cmake-args: '-DLLVM_BUILD_STATIC=ON -DCMAKE_CXX_FLAGS="-s -flto" ${POSIX_CMAKE_ARGS}'
+            os-cmake-args: '-DLLVM_BUILD_STATIC=ON -DCMAKE_CXX_FLAGS="-s -flto" ${LINUX_CMAKE_ARGS}'
             build-args: '-j$(nproc)'
             bindir: '/build/bin'
             dotexe: ''
             shacmd: 'sha512sum'
           - os: macosx
             runner: macos-14
-            os-cmake-args: '-DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto" -DCMAKE_OSX_DEPLOYMENT_TARGET=11 ${POSIX_CMAKE_ARGS}'
+            os-cmake-args: '-DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto" -DCMAKE_OSX_DEPLOYMENT_TARGET=11 ${MACOS_CMAKE_ARGS}'
             build-args: '-j$(sysctl -n hw.ncpu)'
             bindir: '/build/bin'
             dotexe: ''
@@ -74,7 +74,8 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' }}
     env:
       COMMON_CMAKE_ARGS: '-DBUILD_SHARED_LIBS=OFF -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra"'
-      POSIX_CMAKE_ARGS: '-DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_COMPILER=g++-11 -DCMAKE_C_COMPILER=gcc-11'
+      MACOS_CMAKE_ARGS: '-DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_COMPILER=g++-11 -DCMAKE_C_COMPILER=gcc-11'
+      LINUX_CMAKE_ARGS: '-DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_C_COMPILER=gcc-10'
       RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-amd64'
     steps:
