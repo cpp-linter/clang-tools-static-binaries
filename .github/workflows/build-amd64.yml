@@ -127,7 +127,7 @@ jobs:
     - name: link libraries on macosx when version >=14
       if: ${{ matrix.clang-version >= 14 || matrix.os == 'macosx' }}
       shell: bash
-      run: ln -s /opt/homebrew/Cellar/zstd/1.*/lib/libzstd.1.*.dylib /usr/lib/libzstd.1.dylib
+      run: sudo ln -s /opt/homebrew/Cellar/zstd/1.*/lib/libzstd.1.*.dylib /usr/lib/libzstd.1.dylib
     - name: patch cmake implicit link libraries on macosx
       if: ${{ matrix.os == 'macosx' }}
       shell: bash
