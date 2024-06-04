@@ -1,4 +1,4 @@
-name: Test Static Binaries
+name: Test static binaries
 
 on:
   workflow_dispatch:
