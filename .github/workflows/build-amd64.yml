@@ -168,7 +168,7 @@ jobs:
         retention-days: 1
     - uses: actions/attest-build-provenance@v1
       with:
-        subject-path: "${{ matrix.release }}${{ matrix.bindir }}/clang-*-${{ env.suffix }}*"
+        subject-path: "${{ matrix.release }}${{ matrix.bindir }}/clang-*-${{ env.suffix }}"
 
   draft-release:
     runs-on: ubuntu-22.04
