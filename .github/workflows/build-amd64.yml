@@ -124,6 +124,10 @@ jobs:
       if: ${{ ( matrix.clang-version == 9 || matrix.clang-version == 10 ) && matrix.os == 'windows' }}
       shell: bash
       run: patch ${{ matrix.release }}/llvm/cmake/config-ix.cmake windows-clang-9-10-trivially-copyable-mismatch.patch
+    - name: link libraries on macosx when version >=14
+      if: ${{ matrix.clang-version >= 14 || matrix.os == 'macosx' }}
+      shell: bash
+      run: ln -s /opt/homebrew/Cellar/zstd/1.*/lib/libzstd.1.*.dylib /usr/lib/libzstd.1.dylib
     - name: patch cmake implicit link libraries on macosx
       if: ${{ matrix.os == 'macosx' }}
       shell: bash
