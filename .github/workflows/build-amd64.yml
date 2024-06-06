@@ -159,6 +159,11 @@ jobs:
         cat clang-query-${{ env.suffix }}.sha512sum
         cat clang-tidy-${{ env.suffix }}.sha512sum
         cat clang-apply-replacements-${{ env.suffix }}.sha512sum
+        echo "Check versions: "
+        ./clang-format-${{ env.suffix }} --version
+        ./clang-query-${{ env.suffix }} --version
+        ./clang-tidy-${{ env.suffix }} --version
+        ./clang-apply-replacements-${{ env.suffix }} --version
     - name: upload artifacts
       if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
       uses: actions/upload-artifact@v3
