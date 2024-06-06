@@ -33,35 +33,35 @@ jobs:
       checksum_suffix: '${{ matrix.clang-version }}_${{ matrix.checksum_pattern }}.sha512sum'
     steps:
       - uses: actions/checkout@v4
-      - name: Download and check clang version
+      - name: Download and check clang versions
         shell: bash
         run: |
-          gh release download ${{ inputs.username }} --pattern 'clang-format-${{ env.bin_suffix }}'
-          gh release download ${{ inputs.username }} --pattern 'clang-format-${{ env.checksum_suffix }}'
+          gh release download ${{ inputs.tag }} --pattern 'clang-format-${{ env.bin_suffix }}'
+          gh release download ${{ inputs.tag }} --pattern 'clang-format-${{ env.checksum_suffix }}'
           echo "== Output clang-format checksum"
           cat clang-format-${{ env.checksum_suffix }}
           chmod +x clang-format-${{ env.bin_suffix }}
           echo "== Output clang-format version"
           ./clang-format-${{ env.bin_suffix }} --version
 
-          gh release download ${{ inputs.username }} --pattern 'clang-tidy-${{ env.bin_suffix }}'
-          gh release download ${{ inputs.username }} --pattern 'clang-tidy-${{ env.checksum_suffix }}'
+          gh release download ${{ inputs.tag }} --pattern 'clang-tidy-${{ env.bin_suffix }}'
+          gh release download ${{ inputs.tag }} --pattern 'clang-tidy-${{ env.checksum_suffix }}'
           echo "== Output clang-tidy checksum"
           cat clang-tidy-${{ env.checksum_suffix }}
           chmod +x clang-tidy-${{ env.bin_suffix }}
           echo "== Output clang-tidy version"
           ./clang-tidy-${{ env.bin_suffix }} --version
 
-          gh release download ${{ inputs.username }} --pattern 'clang-query-${{ env.bin_suffix }}'
-          gh release download ${{ inputs.username }} --pattern 'clang-query-${{ env.checksum_suffix }}'
+          gh release download ${{ inputs.tag }} --pattern 'clang-query-${{ env.bin_suffix }}'
+          gh release download ${{ inputs.tag }} --pattern 'clang-query-${{ env.checksum_suffix }}'
           echo "== Output clang-query checksum"
           cat clang-query-${{ env.checksum_suffix }}
           chmod +x clang-query-${{ env.bin_suffix }}
           echo "== Output clang-query version"
           ./clang-query-${{ env.bin_suffix }} --version
           
-          gh release download ${{ inputs.username }} --pattern 'clang-apply-replacements-${{ env.bin_suffix }}'
-          gh release download ${{ inputs.username }} --pattern 'clang-apply-replacements-${{ env.checksum_suffix }}'
+          gh release download ${{ inputs.tag }} --pattern 'clang-apply-replacements-${{ env.bin_suffix }}'
+          gh release download ${{ inputs.tag }} --pattern 'clang-apply-replacements-${{ env.checksum_suffix }}'
           echo "== Output clang-apply-replacements checksum"
           cat clang-apply-replacements-${{ env.checksum_suffix }}
           chmod +x clang-apply-replacements-${{ env.bin_suffix }}
