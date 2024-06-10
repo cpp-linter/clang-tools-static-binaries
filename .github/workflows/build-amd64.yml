@@ -139,13 +139,19 @@ jobs:
     - name: print dependencies
       if: ${{ matrix.os == 'macosx' }}
       run: otool -L ${{ matrix.release }}/build/bin/clang-format
-    - name: rename output binary
+    - name: rename and check binary
       run: |
         cd ${{ matrix.release }}${{ matrix.bindir }}
         mv clang-format${{ matrix.dotexe }} clang-format-${{ env.suffix }}${{ matrix.dotexe }}
         mv clang-query${{ matrix.dotexe }} clang-query-${{ env.suffix }}${{ matrix.dotexe }}
         mv clang-tidy${{ matrix.dotexe }} clang-tidy-${{ env.suffix }}${{ matrix.dotexe }}
         mv clang-apply-replacements${{ matrix.dotexe }} clang-apply-replacements-${{ env.suffix }}${{ matrix.dotexe }}
+
+        echo "Check versions: "
+        ./clang-format-${{ env.suffix }}${{ matrix.dotexe }} --version
+        ./clang-query-${{ env.suffix }}${{ matrix.dotexe }} --version
+        ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }} --version
+        ./clang-apply-replacements-${{ env.suffix }}${{ matrix.dotexe }} --version
     - name: create and print sha512sum
       shell: bash
       run: |
