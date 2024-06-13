@@ -170,7 +170,9 @@ jobs:
         name: clang-tools
         path: "${{ matrix.release }}${{ matrix.bindir }}/clang-*-${{ env.suffix }}*"
         retention-days: 1
-    - uses: actions/attest-build-provenance@v1
+    - name: create attestations
+      if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
+      uses: actions/attest-build-provenance@v1
       with:
         subject-path: "${{ matrix.release }}${{ matrix.bindir }}/clang-*-${{ env.suffix }}"
 
