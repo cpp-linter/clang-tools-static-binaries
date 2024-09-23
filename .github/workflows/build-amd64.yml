@@ -132,7 +132,7 @@ jobs:
     - name: patch cmake implicit link libraries on macosx
       if: ${{ matrix.os == 'macosx' }}
       shell: bash
-      run: sed -i.backup 's/gcc_eh.\*|/gcc_eh.*|gcc_ext.*|/g' "$(find /usr/local/Cellar -name CMakeParseImplicitLinkInfo.cmake)"
+      run: sed -i.backup 's/gcc_eh.\*|/gcc_eh.*|gcc_ext.*|/g' "$(find /usr/homebrew/Cellar -name CMakeParseImplicitLinkInfo.cmake)"
     - name: cmake
       run: cmake -S ${{ matrix.release }}/llvm -B ${{ matrix.release }}/build ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.os-cmake-args }} ${{ matrix.extra-cmake-args }}
     - name: build
