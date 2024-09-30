@@ -182,10 +182,11 @@ jobs:
           name: clang-tools
       - name: list files
         run: ls -laR .
-      - name: draft release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          files: "clang-*"
-          draft: true
+          repo_token: ${{ secrets.TOKEN }}
+          file: "clang-*"
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true
