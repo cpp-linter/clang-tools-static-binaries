@@ -1,0 +1,57 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - ".github/workflows/build.yml"
+  pull_request:
+    branches: [ master ]
+    paths:
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04, macos-14, windows-latest ]
+    runs-on: ${{ matrix.runner }}
+    if: ${{ github.actor != 'dependabot[bot]' }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: build clang tools
+      shell: bash
+      run: python build.py # TODO
+      
+    - name: upload artifacts
+      if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
+      uses: actions/upload-artifact@v4
+      with:
+        name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
+        path: "${{ matrix.release }}${{ matrix.bindir }}/clang-*-${{ env.suffix }}*"
+        retention-days: 1
+  draft-release:
+    runs-on: ubuntu-22.04
+    if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
+    needs: build
+    steps:
+      - name: download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: clang-tools
+      - name: list files
+        run: ls -laR .
+      - name: draft release
+        uses: xresloader/upload-to-github-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          file: "clang-*"
+          draft: true
