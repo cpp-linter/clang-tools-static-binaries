@@ -1,3 +1,7 @@
 # ignore the llvm-project tarballs and files
 llvm-project*
 llvm-*
+
+# ignore virtualenv
+venv
+.venv

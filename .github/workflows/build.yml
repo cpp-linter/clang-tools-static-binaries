@@ -29,7 +29,7 @@ jobs:
     - name: build clang tools
       shell: bash
       run: python build.py # TODO
-      
+
     - name: upload artifacts
       if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
       uses: actions/upload-artifact@v4
