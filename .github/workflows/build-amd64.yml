@@ -81,7 +81,13 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' }}
     env:
       COMMON_CMAKE_ARGS: '-DBUILD_SHARED_LIBS=OFF -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra"'
-      MACOS_CMAKE_ARGS: '-DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_COMPILER=g++-11 -DCMAKE_C_COMPILER=gcc-11 -DZSTD_STATIC_LINKING_ONLY=1'
+      MACOS_CMAKE_ARGS: >
+        -DCMAKE_BUILD_TYPE=MinSizeRel
+        -DCMAKE_CXX_FLAGS_MINSIZEREL="-Os"
+        -DCMAKE_C_FLAGS_MINSIZEREL="-Os"
+        -DCMAKE_CXX_COMPILER=g++-11
+        -DCMAKE_C_COMPILER=gcc-11
+        -DZSTD_STATIC_LINKING_ONLY=1
       LINUX_CMAKE_ARGS: '-DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_C_COMPILER=gcc-10'
       RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-amd64'
