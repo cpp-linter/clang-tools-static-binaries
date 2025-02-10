@@ -1,7 +1,7 @@
 # clang-tools static binaries
 
-<!-- [![Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build-amd64.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build-amd64.yml)
-[![Test](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml) -->
+<!-- [![Test](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml) -->
+[![Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml)
 ![](https://img.shields.io/badge/platform-linux--64%20%7C%20win--64%20%7C%20osx--64%20-blue)
 ![Maintenance](https://img.shields.io/maintenance/yes/2025)
 
