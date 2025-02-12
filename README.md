@@ -27,7 +27,7 @@ The supported versions are as follows:
 > [!CAUTION]
 > clang-tidy-19_macosx-amd64 and clang-tidy-20_macosx-amd64 - Files size exceeds 2GB, unable to upload to GitHub releases. See #40
 
-> [!NOTICE]
+> [!NOTE]
 > Remove Support v7 (released in May 2019) by February 2025.
 
 ## Download
