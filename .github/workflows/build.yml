@@ -24,7 +24,7 @@ jobs:
         os: [ linux, macosx, windows ]
         include:
           - clang-version: 20
-            release: llvm-project-20.1.0-rc1.src
+            release: llvm-project-20.1.0.src
           - clang-version: 19
             release: llvm-project-19.1.0.src
           - clang-version: 18
