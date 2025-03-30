@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [ master, test-macos-build ]
+    branches: [ master ]
     paths:
       - ".github/workflows/build.yml"
   pull_request:
