@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, test-macos-build ]
     paths:
       - ".github/workflows/build.yml"
   pull_request:
@@ -83,8 +83,6 @@ jobs:
       COMMON_CMAKE_ARGS: '-DBUILD_SHARED_LIBS=OFF -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra"'
       MACOS_CMAKE_ARGS: >
         -DCMAKE_BUILD_TYPE=MinSizeRel
-        -DCMAKE_CXX_FLAGS_MINSIZEREL="-Os"
-        -DCMAKE_C_FLAGS_MINSIZEREL="-Os"
         -DCMAKE_CXX_COMPILER=g++-11
         -DCMAKE_C_COMPILER=gcc-11
         -DZSTD_STATIC_LINKING_ONLY=1
@@ -96,8 +94,8 @@ jobs:
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-amd64'
     steps:
     - name: download patches
-      # we download a tarball of this repo, as the presence of a .git directory leaks
-      # the commit hash of this repository into the clang binaries
+      # We download a tarball of this repo, as the presence of a .git directory leaks
+      # The commit hash of this repository into the clang binaries
       shell: bash
       run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
     - name: get llvm-project
@@ -140,7 +138,7 @@ jobs:
       if: ${{ ( matrix.clang-version == 9 || matrix.clang-version == 10 ) && matrix.os == 'windows' }}
       shell: bash
       run: patch ${{ matrix.release }}/llvm/cmake/config-ix.cmake windows-clang-9-10-trivially-copyable-mismatch.patch
-    - name: patch cmake implicit link libraries on macosx
+    - name: patch cmake implicit link libraries on macOS
       if: ${{ matrix.os == 'macosx' }}
       shell: bash
       run: |
@@ -160,13 +158,18 @@ jobs:
     - name: print dependencies
       if: ${{ matrix.os == 'macosx' }}
       run: otool -L ${{ matrix.release }}/build/bin/clang-format
-    - name: rename output binary
+    - name: rename output binary and test
       run: |
         cd ${{ matrix.release }}${{ matrix.bindir }}
         mv clang-format${{ matrix.dotexe }} clang-format-${{ env.suffix }}${{ matrix.dotexe }}
         mv clang-query${{ matrix.dotexe }} clang-query-${{ env.suffix }}${{ matrix.dotexe }}
         mv clang-tidy${{ matrix.dotexe }} clang-tidy-${{ env.suffix }}${{ matrix.dotexe }}
         mv clang-apply-replacements${{ matrix.dotexe }} clang-apply-replacements-${{ env.suffix }}${{ matrix.dotexe }}
+
+        ./clang-format-${{ env.suffix }}${{ matrix.dotexe }} --version
+        ./clang-query-${{ env.suffix }}${{ matrix.dotexe }} --version
+        ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }} --version
+        ./clang-apply-replacements-${{ env.suffix }}${{ matrix.dotexe }} --version
     - name: create and print sha512sum
       shell: bash
       run: |
