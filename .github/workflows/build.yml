@@ -91,12 +91,12 @@ jobs:
       RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-amd64'
     steps:
-    - name: download patches
+    - name: Download patches
       # We download a tarball of this repo, as the presence of a .git directory leaks
       # The commit hash of this repository into the clang binaries
       shell: bash
       run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
-    - name: get llvm-project
+    - name: Get llvm-project
       if: ${{ matrix.clang-version == 8 }}
       shell: bash
       run: |
@@ -104,14 +104,14 @@ jobs:
         curl -LO https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/llvm-${version}.src.tar.xz
         curl -LO https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/cfe-${version}.src.tar.xz
         curl -LO https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/clang-tools-extra-${version}.src.tar.xz
-    - name: get llvm-project
+    - name: Get llvm-project
       if: ${{ matrix.clang-version >= 9 || matrix.clang-version == '12.0.1' }}
       shell: bash
       run: |
         version=${RELEASE##llvm-project-}; version=${version%.src}
         curl -LO https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/${{ matrix.release }}.tar.xz
 
-    - name: unpack llvm-project
+    - name: Unpack llvm-project
       if: ${{ matrix.clang-version < 9 }}
       shell: bash
       run: |
@@ -123,40 +123,40 @@ jobs:
         mv llvm-${version}.src ${{ matrix.release }}/llvm
         mv cfe-${version}.src ${{ matrix.release }}/clang
         mv clang-tools-extra-${version}.src ${{ matrix.release }}/clang-tools-extra
-    - name: unpack llvm-project
+    - name: Unpack llvm-project
       if: ${{ matrix.clang-version >= 9 || matrix.clang-version == '12.0.1' }}
       shell: bash
       run: |
         tar xf ${{ matrix.release }}.tar.xz ${{ matrix.extra-tar-args }}
-    - name: patch clang-8 includes
+    - name: Patch clang-8 includes
       if: ${{ matrix.clang-version == 8 }}
       shell: bash
       run: patch ${{ matrix.release }}/llvm/include/llvm/Demangle/MicrosoftDemangleNodes.h include-cstdint-string-prior-to-using-uint8_t.patch
-    - name: patch trivially-copyable clang 9/10
+    - name: Patch trivially-copyable clang 9/10
       if: ${{ ( matrix.clang-version == 9 || matrix.clang-version == 10 ) && matrix.os == 'windows' }}
       shell: bash
       run: patch ${{ matrix.release }}/llvm/cmake/config-ix.cmake windows-clang-9-10-trivially-copyable-mismatch.patch
-    - name: patch cmake implicit link libraries on macOS
+    - name: Patch cmake implicit link libraries on macOS
       if: ${{ matrix.os == 'macosx' }}
       shell: bash
       run: |
         sed -i.backup 's/gcc_eh.\*|/gcc_eh.*|gcc_ext.*|/g' "$(find /opt/homebrew/Cellar -name CMakeParseImplicitLinkInfo.cmake)"
         brew install gcc@11
-    - name: update homebrew
+    - name: Update homebrew
       if: ${{ matrix.os == 'macosx' && matrix.clang-version >= '18' }}
       shell: bash
       run: |
         brew update
         brew upgrade
         brew cleanup
-    - name: cmake
+    - name: CMake
       run: cmake -S ${{ matrix.release }}/llvm -B ${{ matrix.release }}/build ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.os-cmake-args }} ${{ matrix.extra-cmake-args }}
-    - name: build
+    - name: Build
       run: cmake --build ${{ matrix.release }}/build ${{ matrix.build-args }} --target clang-format clang-query clang-tidy clang-apply-replacements
-    - name: print dependencies
+    - name: Print dependencies
       if: ${{ matrix.os == 'macosx' }}
       run: otool -L ${{ matrix.release }}/build/bin/clang-format
-    - name: rename output binary and test
+    - name: Rename output binary and test
       run: |
         cd ${{ matrix.release }}${{ matrix.bindir }}
         mv clang-format${{ matrix.dotexe }} clang-format-${{ env.suffix }}${{ matrix.dotexe }}
@@ -168,7 +168,7 @@ jobs:
         ./clang-query-${{ env.suffix }}${{ matrix.dotexe }} --version
         ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }} --version
         ./clang-apply-replacements-${{ env.suffix }}${{ matrix.dotexe }} --version
-    - name: create and print sha512sum
+    - name: Create and print sha512sum
       shell: bash
       run: |
         cd ${{ matrix.release }}${{ matrix.bindir }}
@@ -181,7 +181,7 @@ jobs:
         cat clang-query-${{ env.suffix }}.sha512sum
         cat clang-tidy-${{ env.suffix }}.sha512sum
         cat clang-apply-replacements-${{ env.suffix }}.sha512sum
-    - name: upload artifacts
+    - name: Upload artifacts
       if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
       uses: actions/upload-artifact@v4
       with:
@@ -193,16 +193,24 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
     needs: build
     steps:
-      - name: download artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
       - name: list files
         run: ls -laR .
       - name: Delete all files over 2G # see issue 40
         run: find . -type f -size +2G -exec rm -v {} \;
-      - name: draft release
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Get short SHA
+        id: sha
+        run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
+      - name: Draft release
         uses: svenstaro/upload-release-action@v2
         with:
+          release_name: "master-${{ steps.sha.outputs.short_sha }}"
+          tag: "master-${{ steps.sha.outputs.short_sha }}"
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
+          overwrite: true
           file_glob: true
           file: clang-*/**/*
