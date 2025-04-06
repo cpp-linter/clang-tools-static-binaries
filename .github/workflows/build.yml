@@ -149,6 +149,9 @@ jobs:
         brew update
         brew upgrade
         brew cleanup
+        echo "Append DYLIB options..."
+        MACOS_CMAKE_ARGS="$MACOS_CMAKE_ARGS -DLLVM_LINK_LLVM_DYLIB=ON -DLLVM_BUILD_LLVM_DYLIB=ON -DCLANG_LINK_CLANG_DYLIB=ON"
+        echo "MACOS_CMAKE_ARGS=$MACOS_CMAKE_ARGS" >> $GITHUB_ENV
     - name: CMake
       run: cmake -S ${{ matrix.release }}/llvm -B ${{ matrix.release }}/build ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.os-cmake-args }} ${{ matrix.extra-cmake-args }}
     - name: Build
