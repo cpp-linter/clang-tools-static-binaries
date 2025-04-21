@@ -149,6 +149,9 @@ jobs:
         brew update
         brew upgrade
         brew cleanup
+        # needed for v18+
+        brew install zlib
+        export DYLD_LIBRARY_PATH="/opt/homebrew/opt/zlib/lib:$DYLD_LIBRARY_PATH"
     - name: CMake
       run: cmake -S ${{ matrix.release }}/llvm -B ${{ matrix.release }}/build ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.os-cmake-args }} ${{ matrix.extra-cmake-args }}
     - name: Build
