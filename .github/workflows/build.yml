@@ -152,8 +152,9 @@ jobs:
         brew cleanup
         # needed for v18+
         brew install zlib
-        # persist DYLD_LIBRARY_PATH for subsequent steps
-        echo "DYLD_LIBRARY_PATH=$(brew --prefix zlib)/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+        export LDFLAGS="-L/opt/homebrew/opt/zlib/lib"
+        export CPPFLAGS="-I/opt/homebrew/opt/zlib/include"
+        export DYLD_LIBRARY_PATH=$(brew --prefix zlib)/lib:$DYLD_LIBRARY_PATH
     - name: CMake
       run: cmake -S ${{ matrix.release }}/llvm -B ${{ matrix.release }}/build ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.os-cmake-args }} ${{ matrix.extra-cmake-args }}
     - name: Build
