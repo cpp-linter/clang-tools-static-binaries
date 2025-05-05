@@ -62,7 +62,7 @@ jobs:
             dotexe: ''
             shacmd: 'sha512sum'
           - os: macosx
-            runner: macos-15
+            runner: macos-14
             os-cmake-args: '-DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto -ffunction-sections -fdata-sections" -DCMAKE_OSX_DEPLOYMENT_TARGET=11 ${MACOS_CMAKE_ARGS}'
             build-args: '-j$(sysctl -n hw.ncpu)'
             bindir: '/build/bin'
@@ -88,6 +88,7 @@ jobs:
         -DZSTD_STATIC_LINKING_ONLY=1
         -DLLVM_ENABLE_ASSERTIONS=OFF
         -DZLIB_USE_STATIC_LIBS=ON
+        -DCMAKE_OSX_ARCHITECTURES=x86_64
       LINUX_CMAKE_ARGS: '-DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_C_COMPILER=gcc-10'
       RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-amd64'
@@ -151,10 +152,7 @@ jobs:
         brew upgrade
         brew cleanup
         # needed for v18+
-        brew install zlib
-        export LDFLAGS="-L/opt/homebrew/opt/zlib/lib"
-        export CPPFLAGS="-I/opt/homebrew/opt/zlib/include"
-        export DYLD_LIBRARY_PATH=$(brew --prefix zlib)/lib:$DYLD_LIBRARY_PATH
+        sudo update_dyld_shared_cache
     - name: CMake
       run: cmake -S ${{ matrix.release }}/llvm -B ${{ matrix.release }}/build ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.os-cmake-args }} ${{ matrix.extra-cmake-args }}
     - name: Build
