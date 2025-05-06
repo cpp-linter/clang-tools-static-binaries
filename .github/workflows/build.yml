@@ -88,7 +88,6 @@ jobs:
         -DZSTD_STATIC_LINKING_ONLY=1
         -DLLVM_ENABLE_ASSERTIONS=OFF
         -DZLIB_USE_STATIC_LIBS=ON
-        -DCMAKE_OSX_ARCHITECTURES=arm64
       LINUX_CMAKE_ARGS: '-DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_C_COMPILER=gcc-10'
       RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-amd64'
