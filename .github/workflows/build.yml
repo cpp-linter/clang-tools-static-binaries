@@ -151,7 +151,8 @@ jobs:
         brew upgrade
         brew cleanup
         # needed for v18+
-        sudo update_dyld_shared_cache
+        sudo update_dyld_shared_cache -force
+        xcode-select --install
     - name: CMake
       run: cmake -S ${{ matrix.release }}/llvm -B ${{ matrix.release }}/build ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.os-cmake-args }} ${{ matrix.extra-cmake-args }}
     - name: Build
@@ -170,6 +171,7 @@ jobs:
         ./clang-format-${{ env.suffix }}${{ matrix.dotexe }} --version
         ./clang-query-${{ env.suffix }}${{ matrix.dotexe }} --version
         ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }} --version
+        file ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }}
         ./clang-apply-replacements-${{ env.suffix }}${{ matrix.dotexe }} --version
     - name: Create and print sha512sum
       shell: bash
