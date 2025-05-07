@@ -170,8 +170,8 @@ jobs:
 
         ./clang-format-${{ env.suffix }}${{ matrix.dotexe }} --version
         ./clang-query-${{ env.suffix }}${{ matrix.dotexe }} --version
-        ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }} --version
         file ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }}
+        ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }} --version
         ./clang-apply-replacements-${{ env.suffix }}${{ matrix.dotexe }} --version
     - name: Create and print sha512sum
       shell: bash
