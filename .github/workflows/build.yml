@@ -141,8 +141,9 @@ jobs:
       if: ${{ matrix.os == 'macosx' }}
       shell: bash
       run: |
-        sed -i.backup 's/gcc_eh.\*|/gcc_eh.*|gcc_ext.*|/g' "$(find /opt/homebrew/Cellar -name CMakeParseImplicitLinkInfo.cmake)"
-        brew install gcc@11
+        # sed -i.backup 's/gcc_eh.\*|/gcc_eh.*|gcc_ext.*|/g' "$(find /opt/homebrew/Cellar -name CMakeParseImplicitLinkInfo.cmake)"
+        # brew install gcc@11
+        run: sed -i.backup 's/gcc_eh.\*|/gcc_eh.*|gcc_ext.*|/g' $(find /usr/local/Cellar -name CMakeParseImplicitLinkInfo.cmake)
     - name: Update homebrew
       if: ${{ matrix.os == 'macosx' && matrix.clang-version >= '18' }}
       shell: bash
