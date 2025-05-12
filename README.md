@@ -16,7 +16,7 @@ The supported versions are as follows:
 |             |macOS 64   |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 | clang-tidy  |Linux 64   |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 |             |Window 64  |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
-|             |macOS 64   |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
+|             |macOS 64   |❌|❌|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 | clang-query |Linux 64   |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 |             |Window 64  |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 |             |macOS 64   |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
@@ -25,6 +25,8 @@ The supported versions are as follows:
 |             |macOS 64   |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 
 > [!NOTE]
+> clang-tidy v19+ failed to run on macOS (see [issue #51](https://github.com/cpp-linter/clang-tools-static-binaries/issues/51))
+>
 > Remove Support v7 (released in May 2019) by February 2025.
 
 ## Download
