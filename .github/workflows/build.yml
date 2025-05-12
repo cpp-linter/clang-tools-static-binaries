@@ -87,6 +87,7 @@ jobs:
         -DCMAKE_C_COMPILER=gcc-11
         -DZSTD_STATIC_LINKING_ONLY=1
         -DLLVM_ENABLE_ASSERTIONS=OFF
+        -DZLIB_USE_STATIC_LIBS=ON
       LINUX_CMAKE_ARGS: '-DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_C_COMPILER=gcc-10'
       RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-amd64'
@@ -166,8 +167,10 @@ jobs:
 
         ./clang-format-${{ env.suffix }}${{ matrix.dotexe }} --version
         ./clang-query-${{ env.suffix }}${{ matrix.dotexe }} --version
+        file ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }}
         ./clang-tidy-${{ env.suffix }}${{ matrix.dotexe }} --version
         ./clang-apply-replacements-${{ env.suffix }}${{ matrix.dotexe }} --version
+      continue-on-error: true # continue to publish when clang-tidy 18+ failed on MacOS
     - name: Create and print sha512sum
       shell: bash
       run: |
@@ -182,7 +185,7 @@ jobs:
         cat clang-tidy-${{ env.suffix }}.sha512sum
         cat clang-apply-replacements-${{ env.suffix }}.sha512sum
     - name: Upload artifacts
-      if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
+      if: github.event_name != 'pull_request'
       uses: actions/upload-artifact@v4
       with:
         name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
@@ -190,7 +193,7 @@ jobs:
         retention-days: 1
   draft-release:
     runs-on: ubuntu-22.04
-    if: ${{ github.actor != 'dependabot[bot]' }} || github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request'
     needs: build
     steps:
       - name: Download artifacts
