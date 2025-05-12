@@ -25,7 +25,7 @@ The supported versions are as follows:
 |             |macOS 64   |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 
 > [!NOTE]
-> clang-tidy v19+ failed to run on MacOS (see [issue #51](https://github.com/cpp-linter/clang-tools-static-binaries/issues/51))
+> clang-tidy v19+ failed to run on macOS (see [issue #51](https://github.com/cpp-linter/clang-tools-static-binaries/issues/51))
 >
 > Remove Support v7 (released in May 2019) by February 2025.
 
