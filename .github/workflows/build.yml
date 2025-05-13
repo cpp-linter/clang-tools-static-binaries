@@ -202,18 +202,10 @@ jobs:
         run: ls -laR .
       - name: Delete all files over 2G # see issue 40
         run: find . -type f -size +2G -exec rm -v {} \;
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Get short SHA
-        id: sha
-        run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
-      - name: Draft release
-        uses: svenstaro/upload-release-action@v2
+      - name: draft release
+        uses: xresloader/upload-to-github-release@v1.6.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          release_name: "master-${{ steps.sha.outputs.short_sha }}"
-          tag: "master-${{ steps.sha.outputs.short_sha }}"
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: "clang-*"
           draft: true
-          overwrite: true
-          file_glob: true
-          file: clang-*/**/*
