@@ -202,10 +202,11 @@ jobs:
         run: ls -laR .
       - name: Delete all files over 2G # see issue 40
         run: find . -type f -size +2G -exec rm -v {} \;
-      - name: draft release
+      - name: Draft release
         uses: xresloader/upload-to-github-release@v1.6.0
+        with:
+          file: clang-tools-llvm-project*
+          draft: true
+          overwrite: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          file: "clang-*"
-          draft: true
