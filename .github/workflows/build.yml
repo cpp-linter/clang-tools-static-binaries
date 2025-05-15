@@ -216,5 +216,5 @@ jobs:
             ./clang-tools-llvm-project-*/* \
             --title "$RELEASE_TAG" \
             --notes "Draft release of prebuilt clang tools" \
-            --draft \
-            --clobber
+            --draft
+
