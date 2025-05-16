@@ -194,7 +194,7 @@ jobs:
         retention-days: 1
   draft-release:
     runs-on: ubuntu-22.04
-    if: github.event_name != 'pull_request' || github.event_name == 'workflow_dispatch'
+    # if: github.event_name != 'pull_request' || github.event_name == 'workflow_dispatch'
     needs: build
     steps:
       - name: Download artifacts
