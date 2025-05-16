@@ -198,10 +198,13 @@ jobs:
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          path: clang-tools-artifacts
+          merge-multiple: true
       - name: list files
-        run: ls -laR .
+        run: ls -laR clang-tools-artifacts
       - name: Delete all files over 2G # see issue 40
-        run: find . -type f -size +2G -exec rm -v {} \;
+        run: find clang-tools-artifacts -type f -size +2G -exec rm -v {} \;
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Get short SHA
@@ -213,8 +216,7 @@ jobs:
         run: |
           RELEASE_TAG="master-${{ steps.sha.outputs.short_sha }}"
           gh release create "$RELEASE_TAG" \
-            ./clang-tools-llvm-project-*/* \
+            clang-tools-artifacts\* \
             --title "$RELEASE_TAG" \
             --notes "Draft release of prebuilt clang tools" \
             --draft
-
