@@ -83,8 +83,8 @@ jobs:
       COMMON_CMAKE_ARGS: '-DBUILD_SHARED_LIBS=OFF -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra"'
       MACOS_CMAKE_ARGS: >
         -DCMAKE_BUILD_TYPE=MinSizeRel
-        -DCMAKE_CXX_COMPILER=g++-11
-        -DCMAKE_C_COMPILER=gcc-11
+        -DCMAKE_CXX_COMPILER=g++-14
+        -DCMAKE_C_COMPILER=gcc-14
         -DZSTD_STATIC_LINKING_ONLY=1
         -DLLVM_ENABLE_ASSERTIONS=OFF
         -DZLIB_USE_STATIC_LIBS=ON
@@ -144,7 +144,6 @@ jobs:
       run: |
         BREW_PREFIX=$(brew --prefix)
         FILES=$(find "$BREW_PREFIX" -name CMakeParseImplicitLinkInfo.cmake)
-
         for file in $FILES; do
           echo "Patching $file"
           sed -i.backup 's/gcc_eh.*|/gcc_eh.*|gcc_ext.*|/g' "$file"
