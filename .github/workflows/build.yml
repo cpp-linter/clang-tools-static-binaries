@@ -191,7 +191,7 @@ jobs:
         retention-days: 1
   draft-release:
     runs-on: ubuntu-22.04
-    if: github.event_name != 'pull_request'
+    # if: github.event_name != 'pull_request'
     needs: build
     steps:
       - name: Download artifacts
@@ -203,18 +203,12 @@ jobs:
         run: ls -laR clang-tools-artifacts
       - name: Delete all files over 2G # see issue 40
         run: find clang-tools-artifacts -type f -size +2G -exec rm -v {} \;
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Get short SHA
-        id: sha
-        run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
-      - name: Create draft release and upload assets
+      - name: Draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_TAG="master-${{ steps.sha.outputs.short_sha }}"
-          gh release create "$RELEASE_TAG" \
-            clang-tools-artifacts\* \
-            --title "$RELEASE_TAG" \
-            --notes "Draft release of prebuilt clang tools" \
-            --draft
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
+          file_glob: true
+          file: clang-*/**/*
