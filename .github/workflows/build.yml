@@ -191,18 +191,14 @@ jobs:
         retention-days: 1
   draft-release:
     runs-on: ubuntu-22.04
-    # if: github.event_name != 'pull_request'
     needs: build
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
-        with:
-          path: clang-tools-artifacts
-          merge-multiple: true
-      - name: list files
-        run: ls -laR clang-tools-artifacts
-      - name: Delete all files over 2G # see issue 40
-        run: find clang-tools-artifacts -type f -size +2G -exec rm -v {} \;
+      - name: List files
+        run: ls -laR .
+      - name: Workaround - delete all files over 2G, above github release file upload limit
+        run: find . -type f -size +2G -exec rm -v {} \;
       - name: Draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
