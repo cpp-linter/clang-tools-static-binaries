@@ -192,17 +192,17 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Get short SHA
+        id: get-sha
+        run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
       - name: Download artifacts
         uses: actions/download-artifact@v4
       - name: List files
         run: ls -laR .
       - name: Workaround - delete all files over 2G, above github release file upload limit
         run: find . -type f -size +2G -exec rm -v {} \;
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Get short SHA
-        id: sha
-        run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
       - name: Draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -210,7 +210,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           release_name: master-${{ steps.sha.outputs.short_sha }}
-          tag: master-${{ steps.sha.outputs.short_sha }}
+          tag: master-${{ steps.get-sha.outputs.short_sha }}
           draft: true
           file_glob: true
           file: clang-*/**/*
