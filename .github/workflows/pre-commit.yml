@@ -5,6 +5,9 @@ on:
   pull_request:
     types: opened
 
+permissions:
+  contents: read
+
 jobs:
   pre-commit:
     uses: cpp-linter/.github/.github/workflows/pre-commit.yml@main
