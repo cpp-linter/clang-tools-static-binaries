@@ -5,3 +5,8 @@ repos:
       - id: trailing-whitespace
         exclude: '\.patch$'
       - id: check-yaml
+      - id: end-of-file-fixer
+        exclude: '\.patch$'
+      - id: check-added-large-files
+        args: ['--maxkb=100']
+      - id: check-merge-conflict

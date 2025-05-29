@@ -31,7 +31,7 @@ The supported versions are as follows:
 ## Download
 
 * Download clang-tools static binaries for your platform from the [Releases](https://github.com/cpp-linter/clang-tools-static-binaries/releases) tab.
-* Alternatively, use the [clang-tools CLI](https://github.com/cpp-linter/clang-tools-pip) to download and manage them.
+* Alternatively, use the [pip](https://github.com/cpp-linter/clang-tools-pip) or [asdf](https://github.com/cpp-linter/asdf-clang-tools) to download and manage them.
 
 ## Motivation behind this repo
 
