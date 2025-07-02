@@ -7,7 +7,7 @@
 
 Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-tidy](https://clang.llvm.org/extra/clang-tidy/), [clang-query](https://github.com/llvm/llvm-project/tree/main/clang-tools-extra/clang-query) and [clang-apply-replacements](https://github.com/llvm/llvm-project/tree/main/clang-tools-extra/clang-apply-replacements)**.
 
-The supported versions are as follows:
+## Clang Tools Version Support Matrix
 
 | Clang Tools |OS/Version |20|19|18 |17 |16 |15 |14 |13 |12 |11 |10 |9  |8  |
 |:------------|-----------|--|--|---|---|---|---|---|---|---|---|---|---|---|
