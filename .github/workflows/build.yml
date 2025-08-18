@@ -267,7 +267,7 @@ jobs:
     needs: build
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Get short SHA
         id: get-sha
         run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
