@@ -96,24 +96,11 @@ jobs:
       run: |
         version=${RELEASE##llvm-project-}; version=${version%.src}
         curl -LO https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/${{ matrix.release }}.tar.xz
-
     - name: Unpack llvm-project
-      if: ${{ matrix.clang-version < 9 }}
       shell: bash
       run: |
-        version=${RELEASE##llvm-project-}
-        tar xf llvm-${version}.src.tar.xz
-        tar xf cfe-${version}.src.tar.xz ${{ matrix.extra-tar-args-cfe }}
-        tar xf clang-tools-extra-${version}.src.tar.xz
-        mkdir ${{ matrix.release }}
-        mv llvm-${version}.src ${{ matrix.release }}/llvm
-        mv cfe-${version}.src ${{ matrix.release }}/clang
-        mv clang-tools-extra-${version}.src ${{ matrix.release }}/clang-tools-extra
-    - name: Unpack llvm-project
-      if: ${{ matrix.clang-version >= 9 || matrix.clang-version == '12.0.1' }}
-      shell: bash
-      run: |
-        tar xf ${{ matrix.release }}.tar.xz ${{ matrix.extra-tar-args }}
+        # add --ignore-missing-links to ignore failure on v21 on windows 
+        tar xf ${{ matrix.release }}.tar.xz --ignore-missing-links ${{ matrix.extra-tar-args }}
     - name: Patch trivially-copyable clang 9/10
       if: ${{ ( matrix.clang-version == 9 || matrix.clang-version == 10 ) && matrix.os == 'windows' }}
       shell: bash
