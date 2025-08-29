@@ -99,8 +99,8 @@ jobs:
     - name: Unpack llvm-project
       shell: bash
       run: |
-        # add --ignore-missing-links to ignore failure on v21 on windows
-        tar xf ${{ matrix.release }}.tar.xz --ignore-missing-links ${{ matrix.extra-tar-args }}
+        # ignore failure on v21 on windows
+        tar xf ${{ matrix.release }}.tar.xz ${{ matrix.extra-tar-args }} || true
     - name: Patch trivially-copyable clang 9/10
       if: ${{ ( matrix.clang-version == 9 || matrix.clang-version == 10 ) && matrix.os == 'windows' }}
       shell: bash
