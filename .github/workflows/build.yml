@@ -33,7 +33,7 @@ jobs:
           - clang-version: 18
             release: llvm-project-18.1.5.src
           - clang-version: 17
-            release: llvm-project-17.0.4.src
+            release: llvm-project-17.0.6.src
           - clang-version: 16
             release: llvm-project-16.0.3.src
           - clang-version: 15
@@ -65,7 +65,7 @@ jobs:
           - os: macosx
             runner: macos-latest
             arch: arm64
-            os-cmake-args: '-DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto -ffunction-sections -fdata-sections" -DCMAKE_EXE_LINKER_FLAGS="-Wl,-dead_strip" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 ${POSIX_CMAKE_ARGS} ${MACOS_CMAKE_ARGS} -DLLVM_TARGETS_TO_BUILD=AArch64 -DLLVM_ENABLE_ZSTD=OFF'
+            os-cmake-args: '-DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto -ffunction-sections -fdata-sections" -DCMAKE_EXE_LINKER_FLAGS="-Wl,-dead_strip" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 ${POSIX_CMAKE_ARGS} ${MACOS_CMAKE_ARGS} -DLLVM_TARGETS_TO_BUILD=AArch64 -DLLVM_ENABLE_ZSTD=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5'
             build-args: '-j$(sysctl -n hw.ncpu)'
             bindir: '/build/bin'
             dotexe: ''
