@@ -1,0 +1,22 @@
+--- a/clang/include/clang/Basic/TokenKinds.def
++++ b/clang/include/clang/Basic/TokenKinds.def
+@@ -632,6 +632,15 @@
+ KEYWORD(decltype, KEYWORD_EXPR)
+ #endif
+ 
++#if defined(__arm_streaming)
++#define CLANG_HAS_ARM_STREAMING_MACRO
++#pragma push_macro("__arm_streaming")
++#undef __arm_streaming
++#endif
++
+ KEYWORD(__arm_streaming, KEYWORD_CXX11_ATTR)
+ 
++#if defined(CLANG_HAS_ARM_STREAMING_MACRO)
++#pragma pop_macro("__arm_streaming")
++#undef CLANG_HAS_ARM_STREAMING_MACRO
++#endif
++
+ CXX_KEYWORD(constinit, 1)
+ CXX_KEYWORD(consteval, 1)
+ #if __STDC_VERSION__ >= 202311L

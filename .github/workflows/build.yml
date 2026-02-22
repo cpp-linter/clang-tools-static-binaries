@@ -121,6 +121,11 @@ jobs:
           sed -i.backup 's/gcc_eh.*|/gcc_eh.*|gcc_ext.*|/g' "$file"
         done
 
+    - name: Patch ARM streaming macro expansion issue for clang 17 on macOS
+      if: ${{ matrix.clang-version == 17 && matrix.os == 'macosx' }}
+      shell: bash
+      run: patch -p1 -d ${{ matrix.release }}/llvm < arm_streaming_fix.patch
+
     - name: Cmake
       run: cmake -S ${{ matrix.release }}/llvm -B ${{ matrix.release }}/build ${{ env.COMMON_CMAKE_ARGS }} ${{ matrix.os-cmake-args }} ${{ matrix.extra-cmake-args }}
     - name: Build
