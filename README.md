@@ -9,7 +9,7 @@ Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-
 
 ## Clang Tools Version Support Matrix
 
-| Clang Tools |OS/Version |21|20|19 |18 |17 |16 |15 |14 |13 |12 |11 |10 |9  |
+| Clang Tools |OS/Version |22|21|20 |19 |18 |17 |16 |15 |14 |13 |12 |11 |10 |
 |:------------|-----------|--|--|---|---|---|---|---|---|---|---|---|---|---|
 |clang-format |Linux 64   |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 |             |Window 64  |✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
@@ -29,10 +29,15 @@ Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-
 |             |macOS x86_64|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 
 > [!NOTE]
+> 
+> Drop support for v10 (released July 2020) by March 2026.
+> 
+> Drop support for v9 (released July 2019) by March 2026.
+> 
+> Drop support for v8 (released July 2019) by September 2025.
 >
-> Remove Support v7 (released in May 2019) by February 2025.
+> Drop support for v7 (released May 2019) by February 2025.
 >
-> Remove Support v8 (released in July 2019) by September 2025.
 
 ## Download
 

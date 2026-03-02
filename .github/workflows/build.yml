@@ -21,9 +21,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        clang-version: [ 21, 20, 19, 18, 17, 16, 15, 14, 13, 12.0.1, 12, 11, 10, 9]
+        clang-version: [ 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12.0.1, 12, 11]
         os: [ linux, macosx, macos-intel, windows ]
         include:
+          - clang-version: 22
+            release: llvm-project-22.1.0.src
           - clang-version: 21
             release: llvm-project-21.1.0.src
           - clang-version: 20
@@ -48,12 +50,6 @@ jobs:
             release: llvm-project-12.0.0.src
           - clang-version: 11
             release: llvm-project-11.1.0.src
-          - clang-version: 10
-            release: llvm-project-10.0.1
-            extra-cmake-args: '-DLLVM_ENABLE_Z3_SOLVER=OFF'
-          - clang-version: 9
-            release: llvm-project-9.0.1
-            extra-cmake-args: '-DLLVM_ENABLE_Z3_SOLVER=OFF'
           - os: linux
             runner: ubuntu-22.04
             arch: amd64
@@ -103,7 +99,7 @@ jobs:
       shell: bash
       run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
     - name: Get llvm-project
-      if: ${{ matrix.clang-version >= 9 || matrix.clang-version == '12.0.1' }}
+      if: ${{ matrix.clang-version == '12.0.1' }}
       shell: bash
       run: |
         version=${RELEASE##llvm-project-}; version=${version%.src}
@@ -113,10 +109,6 @@ jobs:
       run: |
         # ignore failure on v21 on windows
         tar xf ${{ matrix.release }}.tar.xz ${{ matrix.extra-tar-args }} || true
-    - name: Patch trivially-copyable clang 9/10
-      if: ${{ ( matrix.clang-version == 9 || matrix.clang-version == 10 ) && matrix.os == 'windows' }}
-      shell: bash
-      run: patch ${{ matrix.release }}/llvm/cmake/config-ix.cmake windows-clang-9-10-trivially-copyable-mismatch.patch
     - name: Patch cmake implicit link libraries on macOS
       if: ${{ matrix.os == 'macosx' || matrix.os == 'macos-intel' }}
       shell: bash
