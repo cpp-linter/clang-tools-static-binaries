@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         clang-version: [ 21, 20, 19, 18, 17, 16, 15, 14, 13, 12.0.1, 12, 11, 10, 9]
-        os: [ linux, macosx, windows ]
+        os: [ linux, macosx, macos-intel, windows ]
         include:
           - clang-version: 21
             release: llvm-project-21.1.0.src
@@ -70,6 +70,14 @@ jobs:
             bindir: '/build/bin'
             dotexe: ''
             shacmd: 'shasum -a512'
+          - os: macos-intel
+            runner: macos-15-intel
+            arch: amd64
+            os-cmake-args: '-DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -flto -ffunction-sections -fdata-sections" -DCMAKE_EXE_LINKER_FLAGS="-Wl,-dead_strip" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 ${POSIX_CMAKE_ARGS} ${MACOS_CMAKE_ARGS} -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_ZLIB=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5'
+            build-args: '-j$(sysctl -n hw.ncpu)'
+            bindir: '/build/bin'
+            dotexe: ''
+            shacmd: 'shasum -a512'
           - os: windows
             runner: windows-latest
             arch: amd64
@@ -110,7 +118,7 @@ jobs:
       shell: bash
       run: patch ${{ matrix.release }}/llvm/cmake/config-ix.cmake windows-clang-9-10-trivially-copyable-mismatch.patch
     - name: Patch cmake implicit link libraries on macOS
-      if: ${{ matrix.os == 'macosx' }}
+      if: ${{ matrix.os == 'macosx' || matrix.os == 'macos-intel' }}
       shell: bash
       run: |
         BREW_PREFIX=$(brew --prefix)
@@ -131,10 +139,10 @@ jobs:
     - name: Build
       run: cmake --build ${{ matrix.release }}/build ${{ matrix.build-args }} --target clang-format clang-query clang-tidy clang-apply-replacements
     - name: Print dependencies
-      if: ${{ matrix.os == 'macosx' }}
+      if: ${{ matrix.os == 'macosx' || matrix.os == 'macos-intel' }}
       run: otool -L ${{ matrix.release }}/build/bin/clang-format
     - name: Smoke test clang-tools (macos, linux)
-      if: ${{ matrix.os == 'macosx' || matrix.os == 'linux' }}
+      if: ${{ matrix.os == 'macosx' || matrix.os == 'macos-intel' || matrix.os == 'linux' }}
       run: |
         cd ${{ matrix.release }}/build/bin
         ./clang-format --version
@@ -179,7 +187,7 @@ jobs:
     permissions: {}
     strategy:
       matrix:
-        os: [ linux, macosx, windows ]
+        os: [ linux, macosx, macos-intel, windows ]
         include:
           - os: linux
             runner: ubuntu-22.04
@@ -187,6 +195,9 @@ jobs:
           - os: macosx
             runner: macos-latest # ARM64 Apple Silicon runner
             arch: arm64
+          - os: macos-intel
+            runner: macos-15-intel # Intel x86_64 runner
+            arch: amd64
           - os: windows
             runner: windows-latest
             arch: amd64
@@ -201,10 +212,10 @@ jobs:
           path: artifacts
           pattern: '**/*${{ env.suffix }}'
       - name: List files (macos, linux)
-        if: ${{ matrix.os == 'macosx' || matrix.os == 'linux' }}
+        if: ${{ matrix.os == 'macosx' || matrix.os == 'macos-intel' || matrix.os == 'linux' }}
         run: ls -laR artifacts/
       - name: Smoke test each clang tool (macos, linux)
-        if: ${{ matrix.os == 'macosx' || matrix.os == 'linux' }}
+        if: ${{ matrix.os == 'macosx' || matrix.os == 'macos-intel' || matrix.os == 'linux' }}
         run: |
           cd artifacts
           # From the artifacts directory, loop over each executable
