@@ -1,0 +1,16 @@
+--- a/clang/include/clang/Basic/TokenKinds.def
++++ b/clang/include/clang/Basic/TokenKinds.def
+@@ -755,7 +755,13 @@
+ #ifndef KEYWORD_ATTRIBUTE
+ #define KEYWORD_ATTRIBUTE(X) KEYWORD(X, KEYALL)
+ #endif
++// GCC 14+ on ARM64 predefines __arm_streaming as a compiler macro (ARM SME
++// support). Temporarily undefine it to prevent macro expansion of keyword
++// identifiers inside AttrTokenKinds.inc (the LLVM 18+ fix uses ## instead).
++#pragma push_macro("__arm_streaming")
++#undef __arm_streaming
+ #include "clang/Basic/AttrTokenKinds.inc"
++#pragma pop_macro("__arm_streaming")
+ 
+ // Clang-specific keywords enabled only in testing.
+ TESTING_KEYWORD(__unknown_anytype , KEYALL)
