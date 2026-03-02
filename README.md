@@ -29,11 +29,11 @@ Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-
 |             |macOS x86_64|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️| ✔️|✔️|
 
 > [!NOTE]
-> 
+>
 > Drop support for v10 (released July 2020) by March 2026.
-> 
+>
 > Drop support for v9 (released July 2019) by March 2026.
-> 
+>
 > Drop support for v8 (released July 2019) by September 2025.
 >
 > Drop support for v7 (released May 2019) by February 2025.
