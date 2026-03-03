@@ -103,7 +103,7 @@ jobs:
       shell: bash
       run: |
         version=${RELEASE##llvm-project-}; version=${version%.src}
-        curl -LO https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/${{ matrix.release }}.tar.xz
+        curl -LO --retry 5 --retry-delay 10 --retry-all-errors https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/${{ matrix.release }}.tar.xz
     - name: Unpack llvm-project
       shell: bash
       run: |
