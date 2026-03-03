@@ -30,9 +30,9 @@ Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-
 
 > [!NOTE]
 >
-> Remove Support v7 (released in May 2019) by February 2025.
+> Removed support v7 (released in May 2019) by February 2025.
 >
-> Remove Support v8 (released in July 2019) by September 2025.
+> Removed support v8 (released in July 2019) by September 2025.
 >
 > Removed support v9 (released in September 2019) in March 2026.
 >
