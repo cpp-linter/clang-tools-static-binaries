@@ -199,7 +199,7 @@ jobs:
       suffix: '_${{ matrix.os }}-${{ matrix.arch }}'
     steps:
       - name: download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
           pattern: '**/*${{ env.suffix }}'
@@ -264,7 +264,7 @@ jobs:
         id: get-sha
         run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
       - name: List files
         run: ls -laR .
       - name: Workaround - delete all files over 2G, above github release file upload limit
