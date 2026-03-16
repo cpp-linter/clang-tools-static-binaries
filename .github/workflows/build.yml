@@ -170,7 +170,7 @@ jobs:
         cat clang-tidy-${{ env.suffix }}.sha512sum
         cat clang-apply-replacements-${{ env.suffix }}.sha512sum
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
         path: "${{ matrix.release }}${{ matrix.bindir }}/clang-*-${{ env.suffix }}*"
