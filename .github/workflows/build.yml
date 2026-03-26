@@ -17,7 +17,9 @@ concurrency:
 
 jobs:
   build:
-    permissions: {}
+    permissions:
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -169,6 +171,15 @@ jobs:
         cat clang-query-${{ env.suffix }}.sha512sum
         cat clang-tidy-${{ env.suffix }}.sha512sum
         cat clang-apply-replacements-${{ env.suffix }}.sha512sum
+    - name: Generate artifact attestation
+      if: github.event_name != 'pull_request'
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: |
+          ${{ matrix.release }}${{ matrix.bindir }}/clang-format-${{ env.suffix }}${{ matrix.dotexe }}
+          ${{ matrix.release }}${{ matrix.bindir }}/clang-query-${{ env.suffix }}${{ matrix.dotexe }}
+          ${{ matrix.release }}${{ matrix.bindir }}/clang-tidy-${{ env.suffix }}${{ matrix.dotexe }}
+          ${{ matrix.release }}${{ matrix.bindir }}/clang-apply-replacements-${{ env.suffix }}${{ matrix.dotexe }}
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
       with:
