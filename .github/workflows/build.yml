@@ -20,6 +20,7 @@ jobs:
     permissions:
       id-token: write
       attestations: write
+      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -266,6 +267,7 @@ jobs:
   draft-release:
     permissions:
       contents: write
+      actions: read
     runs-on: ubuntu-22.04
     needs: build
     steps:
