@@ -56,8 +56,41 @@ These binaries aim to:
 
 This repository ([cpp-linter/clang-tools-static-binaries](https://github.com/cpp-linter/clang-tools-static-binaries)) is forked from [muttleyxd/clang-tools-static-binaries](https://github.com/muttleyxd/clang-tools-static-binaries).
 
+## Building locally
+
+A Python build script is provided so you can reproduce any build on your own machine without needing GitHub Actions.
+
+**Prerequisites** (install once per platform):
+
+| Platform | Requirements |
+|---|---|
+| Linux x86-64 | `gcc-10`, `cmake`, `make` |
+| macOS ARM64 | Homebrew, `gcc@14`, `cmake` |
+| macOS x86-64 | Homebrew, `gcc@14`, `cmake` |
+| Windows x86-64 | Visual Studio with C++ tools, `cmake` |
+
+**Run the script:**
+
+```bash
+# build clang-tools version 18 for the auto-detected host OS
+python build.py --version 18
+
+# explicitly target a platform
+python build.py --version 17 --os macosx
+
+# write downloads and build artifacts to a custom directory
+python build.py --version 20 --os linux --build-dir /tmp/llvm-build
+```
+
+Run `python build.py --help` for the full list of options.
+
+The script performs exactly the same steps as the CI workflow:
+downloads the LLVM source, applies any necessary patches, configures and
+builds with CMake, smoke-tests each binary, and writes the renamed
+binaries and their sha512sum files into `<release>/build/bin/`.
+
 ## How can I trust this repository?
 
 - Verify sha512sums of binaries against output from GitHub Actions to make sure binaries are not modified
 - Fork this repository and run GitHub actions on your behalf
-- Build and test manually using steps and commands from [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
+- Build and test manually using `python build.py` (see above) or the steps in [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
