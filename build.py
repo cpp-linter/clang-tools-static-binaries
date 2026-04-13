@@ -26,7 +26,6 @@ import argparse
 import hashlib
 import os
 import platform
-import shutil
 import subprocess
 import sys
 import tarfile
@@ -169,6 +168,15 @@ def patch_cmake_implicit_link_macos() -> None:
 def apply_patch(patch_file: Path, target_dir: Path) -> None:
     """Apply a unified diff patch inside *target_dir*."""
     run(["patch", "-p1", "-d", str(target_dir), "-i", str(patch_file.resolve())])
+
+
+def print_dependencies(release: str) -> None:
+    """Print dynamic library dependencies of clang-format (macOS only)."""
+    clang_format = Path(release) / "build" / "bin" / "clang-format"
+    if clang_format.exists():
+        run(["otool", "-L", str(clang_format)])
+    else:
+        print(f"[warn] {clang_format} not found; skipping dependency listing.")
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +336,12 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
         "clang-format", "clang-query", "clang-tidy", "clang-apply-replacements",
     ]
     run(build_cmd)
+
+    # ------------------------------------------------------------------
+    # 5b. Print dynamic library dependencies (macOS only)
+    # ------------------------------------------------------------------
+    if os_name in ("macosx", "macos-intel"):
+        print_dependencies(release)
 
     # ------------------------------------------------------------------
     # 6. Smoke test
