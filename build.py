@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-build.py – local build script for clang-tools static binaries.
+build.py - local build script for clang-tools static binaries.
 
 This script mirrors the steps in .github/workflows/build.yml so that a build
 can be reproduced on any supported platform without needing GitHub Actions.
 
 Supported platforms
 -------------------
-  linux        – Linux x86-64  (requires gcc-10, cmake, ninja/make)
-  macosx       – macOS ARM64   (requires brew, gcc@14, cmake)
-  macos-intel  – macOS x86-64  (requires brew, gcc@14, cmake)
-  windows      – Windows x86-64 (requires Visual Studio with C++ tools, cmake)
+  linux        - Linux x86-64  (requires gcc-10, cmake, ninja/make)
+  macosx       - macOS ARM64   (requires brew, gcc@14, cmake)
+  macos-intel  - macOS x86-64  (requires brew, gcc@14, cmake)
+  windows      - Windows x86-64 (requires Visual Studio with C++ tools, cmake)
 
 Usage
 -----
@@ -33,7 +33,7 @@ import urllib.request
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Version → source release mapping (must stay in sync with build.yml)
+# Version -> source release mapping (must stay in sync with build.yml)
 # ---------------------------------------------------------------------------
 RELEASES: dict[str, str] = {
     "22": "llvm-project-22.1.0.src",
@@ -96,7 +96,7 @@ def download_file(url: str, dest: Path) -> None:
     if dest.exists():
         print(f"[skip] {dest.name} already downloaded.")
         return
-    print(f"Downloading {url} …", flush=True)
+    print(f"Downloading {url} ...", flush=True)
     tmp = dest.with_suffix(".tmp")
     try:
         with urllib.request.urlopen(url) as resp, open(tmp, "wb") as fh:
@@ -125,7 +125,7 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
     if release_dir.exists():
         print(f"[skip] {release} already unpacked.")
         return
-    print(f"Unpacking {tarball.name} …", flush=True)
+    print(f"Unpacking {tarball.name} ...", flush=True)
     # Build a set of path prefixes to skip
     excludes = set(extra_excludes)
 
@@ -137,7 +137,7 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
             )
             if not skip:
                 members.append(member)
-        tf.extractall(path=".", members=members)  # noqa: S202 – we own the source
+        tf.extractall(path=".", members=members)  # noqa: S202 - we own the source
 
 
 def patch_cmake_implicit_link_macos() -> None:
@@ -349,7 +349,7 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
     bins = bin_dir(release, os_name)
     for tool in TOOLS:
         exe = bins / f"{tool}{dot_exe}"
-        print(f"\nSmoke-testing {exe} …")
+        print(f"\nSmoke-testing {exe} ...")
         run([str(exe), "--version"])
 
     # ------------------------------------------------------------------
@@ -358,7 +358,7 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
     for tool in TOOLS:
         src = bins / f"{tool}{dot_exe}"
         dst = bins / f"{tool}-{suffix}{dot_exe}"
-        print(f"Renaming {src.name} → {dst.name}")
+        print(f"Renaming {src.name} -> {dst.name}")
         src.rename(dst)
 
     # ------------------------------------------------------------------
@@ -371,7 +371,7 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
         sha_file.write_text(f"{digest}  {binary.name}\n")
         print(f"{digest}  {binary.name}")
 
-    print(f"\n✓ Build complete. Artifacts are in: {bins.resolve()}")
+    print(f"\nBuild complete. Artifacts are in: {bins.resolve()}")
 
 
 # ---------------------------------------------------------------------------
@@ -426,7 +426,7 @@ def main() -> None:
     try:
         build(args.version, os_name, script_dir)
     except subprocess.CalledProcessError as exc:
-        print(f"\n✗ Build failed (exit code {exc.returncode}).", file=sys.stderr)
+        print(f"\nBuild failed (exit code {exc.returncode}).", file=sys.stderr)
         sys.exit(exc.returncode)
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
