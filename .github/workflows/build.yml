@@ -162,6 +162,7 @@ jobs:
               }
           }
   draft-release:
+    if: github.event_name != 'pull_request'
     permissions:
       contents: write
     runs-on: ubuntu-22.04
