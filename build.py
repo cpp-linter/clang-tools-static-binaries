@@ -288,7 +288,7 @@ def bin_dir(release: str, is_windows: bool) -> Path:
 
 
 def build(version: str, os_name: str, script_dir: Path) -> None:
-    is_linux = os_name.startswith("linux")
+    # is_linux = os_name.startswith("linux")
     is_macos = os_name.startswith("macos")
     is_windows = os_name.startswith("windows")
 
@@ -297,7 +297,7 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
 
     release = RELEASES[version]
     suffix = f"{version}_{os_name}-{architecture_string}"
-    dot_exe = ".exe" if os_name == "windows" else ""
+    dot_exe = ".exe" if is_windows else ""
 
     print(f"\n{'='*60}")
     print(f"Building clang-tools {version} for {os_name}")
@@ -320,7 +320,7 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
     # 2. Unpack
     # ------------------------------------------------------------------
     extra_excludes: list[str] = []
-    if os_name == "windows":
+    if is_windows:
         extra_excludes = [
             f"{release}/clang/test/Driver/Inputs/",
             f"{release}/libcxx/test/std/input.output/filesystems/Inputs/static_test_env/",
@@ -331,10 +331,10 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
     # ------------------------------------------------------------------
     # 3. Platform-specific patches
     # ------------------------------------------------------------------
-    if os_name in ("macosx", "macos-intel"):
+    if is_macos:
         patch_cmake_implicit_link_macos()
 
-    if os_name == "macosx" and version == "17":
+    if is_arm and version == "17":
         patch_path = script_dir / "arm_streaming_fix.patch"
         if patch_path.exists():
             apply_patch(patch_path, Path(release))
@@ -370,7 +370,7 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
     # ------------------------------------------------------------------
     # 5b. Print dynamic library dependencies (macOS only)
     # ------------------------------------------------------------------
-    if os_name in ("macosx", "macos-intel"):
+    if is_macos:
         print_dependencies(release)
 
     # ------------------------------------------------------------------
