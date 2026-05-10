@@ -196,10 +196,10 @@ def print_dependencies(release: str) -> None:
 def cmake_args_linux_amd64() -> list[str]:
     return [
         "-DBUILD_SHARED_LIBS=OFF",
-        '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+        "-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra",
         "-DLLVM_BUILD_STATIC=ON",
         "-DCMAKE_BUILD_TYPE=MinSizeRel",
-        '-DCMAKE_CXX_FLAGS=-s -flto',
+        "-DCMAKE_CXX_FLAGS=-s -flto",
         "-DCMAKE_CXX_COMPILER=g++-10",
         "-DCMAKE_C_COMPILER=gcc-10",
     ]
@@ -208,10 +208,10 @@ def cmake_args_linux_amd64() -> list[str]:
 def cmake_args_linux_arm64() -> list[str]:
     return [
         "-DBUILD_SHARED_LIBS=OFF",
-        '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+        "-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra",
         "-DLLVM_BUILD_STATIC=ON",
         "-DCMAKE_BUILD_TYPE=MinSizeRel",
-        '-DCMAKE_CXX_FLAGS=-s -flto',
+        "-DCMAKE_CXX_FLAGS=-s -flto",
         "-DCMAKE_CXX_COMPILER=g++-10",
         "-DCMAKE_C_COMPILER=gcc-10",
     ]
@@ -220,7 +220,7 @@ def cmake_args_linux_arm64() -> list[str]:
 def cmake_args_macos_amd64() -> list[str]:
     return [
         "-DBUILD_SHARED_LIBS=OFF",
-        '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+        "-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra",
         "-DCMAKE_BUILD_TYPE=MinSizeRel",
         "-DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -flto -ffunction-sections -fdata-sections",
         "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-dead_strip",
@@ -237,7 +237,7 @@ def cmake_args_macos_amd64() -> list[str]:
 def cmake_args_macos_arm64() -> list[str]:
     return [
         "-DBUILD_SHARED_LIBS=OFF",
-        '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+        "-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra",
         "-DCMAKE_BUILD_TYPE=MinSizeRel",
         "-DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -flto -ffunction-sections -fdata-sections",
         "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-dead_strip",
@@ -253,7 +253,7 @@ def cmake_args_macos_arm64() -> list[str]:
 def cmake_args_windows_amd64() -> list[str]:
     return [
         "-DBUILD_SHARED_LIBS=OFF",
-        '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+        "-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra",
         "-Thost=x64",
         "-DCMAKE_CXX_FLAGS=/MP /std:c++14",
         "-DLLVM_USE_CRT_MINSIZEREL=MT",
@@ -299,17 +299,17 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
     suffix = f"{version}_{os_name}-{architecture_string}"
     dot_exe = ".exe" if is_windows else ""
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Building clang-tools {version} for {os_name}")
     print(f"  release : {release}")
     print(f"  suffix  : {suffix}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # ------------------------------------------------------------------
     # 1. Download source tarball
     # ------------------------------------------------------------------
     tarball = Path(f"{release}.tar.xz")
-    ver_tag = release[len("llvm-project-"):-len(".src")]
+    ver_tag = release[len("llvm-project-") : -len(".src")]
     url = (
         f"https://github.com/llvm/llvm-project/releases/download/"
         f"llvmorg-{ver_tag}/{release}.tar.xz"
@@ -428,7 +428,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--os",
-        choices=["linux-amd64", "linux-arm64", "macos-amd64", "macos-arm64", "windows-amd64"],
+        choices=[
+            "linux-amd64",
+            "linux-arm64",
+            "macos-amd64",
+            "macos-arm64",
+            "windows-amd64",
+        ],
         default=None,
         help=(
             "Target OS/platform. Defaults to auto-detected host OS. "
@@ -445,9 +451,7 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-
     os_name = args.os or detect_os()
-
     script_dir = Path(__file__).parent.resolve()
 
     if args.build_dir:
