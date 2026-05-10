@@ -7,16 +7,17 @@ can be reproduced on any supported platform without needing GitHub Actions.
 
 Supported platforms
 -------------------
-  linux        - Linux x86-64  (requires gcc-10, cmake, ninja/make)
-  macosx       - macOS ARM64   (requires brew, gcc@14, cmake)
-  macos-intel  - macOS x86-64  (requires brew, gcc@14, cmake)
+  linux-amd64  - Linux x86-64   (requires gcc-10, cmake, ninja/make)
+  linux-arm64  - Linux ARM64    (requires gcc-10, cmake, ninja/make)
+  macos-amd64  - macOS x86-64   (requires brew, gcc@14, cmake)
+  macos-arm64  - macOS ARM64    (requires brew, gcc@14, cmake)
   windows      - Windows x86-64 (requires Visual Studio with C++ tools, cmake)
 
 Usage
 -----
   python build.py --version 18
-  python build.py --version 17 --os macosx
-  python build.py --version 20 --os linux --build-dir /tmp/llvm-build
+  python build.py --version 17 --os macos-arm64
+  python build.py --version 20 --os linux-amd64 --build-dir /tmp/llvm-build
   python build.py --help
 """
 
