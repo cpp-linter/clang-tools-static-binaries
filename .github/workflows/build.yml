@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         clang-version: [ 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12.0.1, 12, 11]
-        os: [ linux-amd64, macos-amd64, macos-arm64, windows-amd64 ]
+        os: [ linux-amd64, linux-arm64, macos-amd64, macos-arm64, windows-amd64 ]
         include:
           - clang-version: 22
             release: llvm-project-22.1.0.src
@@ -55,6 +55,9 @@ jobs:
           - os: linux-amd64
             runner: ubuntu-22.04
             arch: amd64
+          - os: linux-arm64
+            runner: ubuntu-22.04
+            arch: arm64
           - os: macos-amd64
             runner: macos-15-intel
             arch: amd64
@@ -88,11 +91,14 @@ jobs:
     permissions: {}
     strategy:
       matrix:
-        os: [ linux-amd64, macos-amd64, macos-arm64, windows-amd64 ]
+        os: [ linux-amd64, linux-arm64, macos-amd64, macos-arm64, windows-amd64 ]
         include:
           - os: linux-amd64
             runner: ubuntu-22.04
             arch: amd64
+          - os: linux-arm64
+            runner: ubuntu-22.04
+            arch: arm64
           - os: macos-amd64
             runner: macos-15-intel # Intel x86_64 runner
             arch: amd64
@@ -113,10 +119,10 @@ jobs:
           path: artifacts
           pattern: '**/*${{ env.suffix }}'
       - name: List files (macOS, Linux)
-        if: ${{ matrix.os == 'linux-amd64' || matrix.os == 'macos-amd64' || matrix.os == 'macos-arm64' }}
+        if: ${{ matrix.os == 'linux-amd64' || matrix.os == 'linux-arm64' || matrix.os == 'macos-amd64' || matrix.os == 'macos-arm64' }}
         run: ls -laR artifacts/
       - name: Smoke test each clang tool (macOS, Linux)
-        if: ${{ matrix.os == 'linux-amd64' || matrix.os == 'macos-amd64' || matrix.os == 'macos-arm64' }}
+        if: ${{ matrix.os == 'linux-amd64' || matrix.os == 'linux-arm64' || matrix.os == 'macos-amd64' || matrix.os == 'macos-arm64' }}
         run: |
           cd artifacts
           # From the artifacts directory, loop over each executable
