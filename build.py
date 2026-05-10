@@ -7,11 +7,11 @@ can be reproduced on any supported platform without needing GitHub Actions.
 
 Supported platforms
 -------------------
-  linux-amd64  - Linux x86-64   (requires gcc-10, cmake, ninja/make)
-  linux-arm64  - Linux ARM64    (requires gcc-10, cmake, ninja/make)
-  macos-amd64  - macOS x86-64   (requires brew, gcc@14, cmake)
-  macos-arm64  - macOS ARM64    (requires brew, gcc@14, cmake)
-  windows      - Windows x86-64 (requires Visual Studio with C++ tools, cmake)
+  linux-amd64    - Linux x86-64   (requires gcc-10, cmake, ninja/make)
+  linux-arm64    - Linux ARM64    (requires gcc-10, cmake, ninja/make)
+  macos-amd64    - macOS x86-64   (requires brew, gcc@14, cmake)
+  macos-arm64    - macOS ARM64    (requires brew, gcc@14, cmake)
+  windows-amd64  - Windows x86-64 (requires Visual Studio with C++ tools, cmake)
 
 Usage
 -----
