@@ -69,14 +69,21 @@ def run(cmd: list[str], **kwargs: Any) -> None:
 def detect_os() -> str:
     """Return the platform key matching build.yml matrix names."""
     system = platform.system().lower()
-    if system == "linux":
-        return "linux"
-    if system == "darwin":
-        machine = platform.machine().lower()
-        return "macosx" if machine == "arm64" else "macos-intel"
-    if system == "windows":
-        return "windows"
-    raise RuntimeError(f"Unsupported operating system: {system!r}")
+
+    match system:
+        case "linux":
+            machine = platform.machine().lower()
+            return "linux-arm64" if machine == "arm64" else "linux-amd64"
+
+        case "darwin":
+            machine = platform.machine().lower()
+            return "macos-arm64" if machine == "arm64" else "macos-amd64"
+
+        case "windows":
+            return "windows-amd64"
+
+        case _:
+            raise RuntimeError(f"Unsupported operating system: {system!r}")
 
 
 def os_arch(os_name: str) -> str:
