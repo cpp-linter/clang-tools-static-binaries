@@ -287,7 +287,11 @@ def bin_dir(release: str, is_windows: bool) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def build(version: str, os_name: str, is_windows: bool, script_dir: Path) -> None:
+def build(version: str, os_name: str, script_dir: Path) -> None:
+    is_linux = os_name.startswith("linux")
+    is_macos = os_name.startswith("macos")
+    is_windows = os_name.startswith("windows")
+
     release = RELEASES[version]
     suffix = f"{version}_{os_name}-{os_arch(os_name)}"
     dot_exe = ".exe" if os_name == "windows" else ""
@@ -439,7 +443,6 @@ def main() -> None:
     args = parser.parse_args()
 
     os_name = args.os or detect_os()
-    is_windows = os_name.startswith("windows")
 
     script_dir = Path(__file__).parent.resolve()
 
@@ -449,7 +452,7 @@ def main() -> None:
         os.chdir(build_path)
 
     try:
-        build(args.version, os_name, is_windows, script_dir)
+        build(args.version, os_name, script_dir)
     except subprocess.CalledProcessError as exc:
         print(f"\nBuild failed (exit code {exc.returncode}).", file=sys.stderr)
         sys.exit(exc.returncode)
