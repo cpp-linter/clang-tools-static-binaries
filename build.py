@@ -88,7 +88,7 @@ def detect_os() -> str:
 
 def os_arch(os_name: str) -> str:
     """Return the architecture string used in binary suffixes."""
-    return "arm64" if os_name == "macosx" else "amd64"
+    return "arm64" if os_name.endswith("arm64") else "amd64"
 
 
 def sha512_file(path: Path) -> str:
