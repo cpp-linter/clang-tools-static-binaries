@@ -107,15 +107,15 @@ jobs:
     env:
       suffix: '_${{ matrix.os }}-${{ matrix.arch }}'
     steps:
-      - name: download artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
           path: artifacts
           pattern: '**/*${{ env.suffix }}'
-      - name: List files (macos, linux)
+      - name: List files (macOS, Linux)
         if: ${{ matrix.os == 'linux-amd64' || matrix.os == 'macos-amd64' || matrix.os == 'macos-arm64' }}
         run: ls -laR artifacts/
-      - name: Smoke test each clang tool (macos, linux)
+      - name: Smoke test each clang tool (macOS, Linux)
         if: ${{ matrix.os == 'linux-amd64' || matrix.os == 'macos-amd64' || matrix.os == 'macos-arm64' }}
         run: |
           cd artifacts
