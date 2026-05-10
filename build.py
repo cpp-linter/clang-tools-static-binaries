@@ -256,15 +256,16 @@ CMAKE_ARGS_BY_OS = {
 }
 
 
-def build_args_by_os(os_name: str) -> list[str]:
-    if os_name == "windows":
+def build_args_by_os(is_windows: bool) -> list[str]:
+    if is_windows:
         return ["--config", "MinSizeRel"]
+
     cpu_count = os.cpu_count() or 1
     return [f"-j{cpu_count}"]
 
 
-def bin_dir(release: str, os_name: str) -> Path:
-    sub = "MinSizeRel/bin" if os_name == "windows" else "bin"
+def bin_dir(release: str, is_windows: bool) -> Path:
+    sub = "MinSizeRel/bin" if is_windows else "bin"
     return Path(release) / "build" / sub
 
 
@@ -340,7 +341,7 @@ def build(version: str, os_name: str, is_windows: bool, script_dir: Path) -> Non
     # ------------------------------------------------------------------
     build_cmd = [
         "cmake", "--build", str(build_dir),
-    ] + build_args_by_os(os_name) + [
+    ] + build_args_by_os(is_windows) + [
         "--target",
         "clang-format", "clang-query", "clang-tidy", "clang-apply-replacements",
     ]
@@ -355,7 +356,7 @@ def build(version: str, os_name: str, is_windows: bool, script_dir: Path) -> Non
     # ------------------------------------------------------------------
     # 6. Smoke test
     # ------------------------------------------------------------------
-    bins = bin_dir(release, os_name)
+    bins = bin_dir(release, is_windows)
     for tool in TOOLS:
         exe = bins / f"{tool}{dot_exe}"
         print(f"\nSmoke-testing {exe} ...")
