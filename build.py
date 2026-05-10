@@ -21,6 +21,7 @@ Usage
 """
 
 from __future__ import annotations
+from typing import Any
 
 import argparse
 import hashlib
@@ -58,7 +59,7 @@ TOOLS = ["clang-format", "clang-query", "clang-tidy", "clang-apply-replacements"
 # ---------------------------------------------------------------------------
 
 
-def run(cmd: list[str], **kwargs) -> None:
+def run(cmd: list[str], **kwargs: Any) -> None:
     """Run a command, raising CalledProcessError on failure."""
     print(f"\n>>> {' '.join(str(c) for c in cmd)}", flush=True)
     subprocess.run(cmd, check=True, **kwargs)
