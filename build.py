@@ -193,7 +193,7 @@ def print_dependencies(release: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def cmake_args_linux() -> list[str]:
+def cmake_args_linux_amd64() -> list[str]:
     return [
         "-DBUILD_SHARED_LIBS=OFF",
         '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
@@ -205,23 +205,19 @@ def cmake_args_linux() -> list[str]:
     ]
 
 
-def cmake_args_macosx() -> list[str]:
+def cmake_args_linux_arm64() -> list[str]:
     return [
         "-DBUILD_SHARED_LIBS=OFF",
         '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+        "-DLLVM_BUILD_STATIC=ON",
         "-DCMAKE_BUILD_TYPE=MinSizeRel",
-        "-DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -flto -ffunction-sections -fdata-sections",
-        "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-dead_strip",
-        "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0",
-        "-DCMAKE_CXX_COMPILER=g++-14",
-        "-DCMAKE_C_COMPILER=gcc-14",
-        "-DLLVM_TARGETS_TO_BUILD=AArch64",
-        "-DLLVM_ENABLE_ZSTD=OFF",
-        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+        '-DCMAKE_CXX_FLAGS=-s -flto',
+        "-DCMAKE_CXX_COMPILER=g++-10",
+        "-DCMAKE_C_COMPILER=gcc-10",
     ]
 
 
-def cmake_args_macos_intel() -> list[str]:
+def cmake_args_macos_amd64() -> list[str]:
     return [
         "-DBUILD_SHARED_LIBS=OFF",
         '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
@@ -238,7 +234,23 @@ def cmake_args_macos_intel() -> list[str]:
     ]
 
 
-def cmake_args_windows() -> list[str]:
+def cmake_args_macos_arm64() -> list[str]:
+    return [
+        "-DBUILD_SHARED_LIBS=OFF",
+        '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+        "-DCMAKE_BUILD_TYPE=MinSizeRel",
+        "-DCMAKE_CXX_FLAGS=-static-libgcc -static-libstdc++ -flto -ffunction-sections -fdata-sections",
+        "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-dead_strip",
+        "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0",
+        "-DCMAKE_CXX_COMPILER=g++-14",
+        "-DCMAKE_C_COMPILER=gcc-14",
+        "-DLLVM_TARGETS_TO_BUILD=AArch64",
+        "-DLLVM_ENABLE_ZSTD=OFF",
+        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+    ]
+
+
+def cmake_args_windows_amd64() -> list[str]:
     return [
         "-DBUILD_SHARED_LIBS=OFF",
         '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
@@ -249,10 +261,11 @@ def cmake_args_windows() -> list[str]:
 
 
 CMAKE_ARGS_BY_OS = {
-    "linux": cmake_args_linux,
-    "macosx": cmake_args_macosx,
-    "macos-intel": cmake_args_macos_intel,
-    "windows": cmake_args_windows,
+    "linux-amd64": cmake_args_linux_amd64,
+    "linux-arm64": cmake_args_linux_arm64,
+    "macos-amd64": cmake_args_macos_amd64,
+    "macos-arm64": cmake_args_macos_arm64,
+    "windows-amd64": cmake_args_windows_amd64,
 }
 
 
