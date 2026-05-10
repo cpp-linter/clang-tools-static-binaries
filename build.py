@@ -428,12 +428,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--os",
-        choices=["linux", "macosx", "macos-intel", "windows"],
+        choices=["linux-amd64", "linux-arm64", "macos-amd64", "macos-arm64", "windows-amd64"],
         default=None,
         help=(
             "Target OS/platform. Defaults to auto-detected host OS. "
-            "linux=Linux x86-64, macosx=macOS ARM64, "
-            "macos-intel=macOS x86-64, windows=Windows x86-64."
+            "linux-amd64=Linux x86-64, linux-arm64=Linux ARM64, "
+            "macos-amd64=macOS x86-64, macos-arm64=macOS ARM64, "
+            "windows-amd64=Windows x86-64."
         ),
     )
     parser.add_argument(
