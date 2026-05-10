@@ -22,7 +22,7 @@ Usage
 """
 
 from __future__ import annotations
-from typing import Any
+from typing import Any, Literal
 
 import argparse
 import hashlib
@@ -86,7 +86,7 @@ def detect_os() -> str:
             raise RuntimeError(f"Unsupported operating system: {system!r}")
 
 
-def os_arch(os_name: str) -> str:
+def os_arch(os_name: str) -> Literal["amd64", "arm64"]:
     """Return the architecture string used in binary suffixes."""
     return "arm64" if os_name.endswith("arm64") else "amd64"
 
@@ -292,8 +292,11 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
     is_macos = os_name.startswith("macos")
     is_windows = os_name.startswith("windows")
 
+    architecture_string = os_arch(os_name)
+    is_arm = architecture_string.startswith("arm")
+
     release = RELEASES[version]
-    suffix = f"{version}_{os_name}-{os_arch(os_name)}"
+    suffix = f"{version}_{os_name}-{architecture_string}"
     dot_exe = ".exe" if os_name == "windows" else ""
 
     print(f"\n{'='*60}")
