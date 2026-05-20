@@ -444,7 +444,7 @@ def main() -> None:
     )
 
     arguments = parser.parse_args()
-    target_platform = arguments.os or f"{detect_os()}-{detect_arch()}"
+    target_platform = arguments.platform or f"{detect_os()}-{detect_arch()}"
     script_dir = Path(__file__).parent.resolve()
 
     if arguments.build_dir:
