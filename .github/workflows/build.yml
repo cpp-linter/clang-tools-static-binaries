@@ -52,21 +52,21 @@ jobs:
             release: llvm-project-12.0.0.src
           - clang-version: 11
             release: llvm-project-11.1.0.src
-          - os: linux-amd64
+          - os: linux
+            arch: amd64
             runner: ubuntu-22.04
-            arch: amd64
-          - os: linux-arm64
+          - os: linux
+            arch: arm64
             runner: ubuntu-22.04-arm
-            arch: arm64
-          - os: macos-amd64
+          - os: macos
+            arch: amd64
             runner: macos-15-intel
-            arch: amd64
-          - os: macos-arm64
-            runner: macos-latest
+          - os: macos
             arch: arm64
-          - os: windows-amd64
-            runner: windows-latest
+            runner: macos-latest
+          - os: windows
             arch: amd64
+            runner: windows-latest
     runs-on: ${{ matrix.runner }}
     env:
       RELEASE: '${{ matrix.release }}'
@@ -93,21 +93,21 @@ jobs:
       matrix:
         os: [ linux-amd64, linux-arm64, macos-amd64, macos-arm64, windows-amd64 ]
         include:
-          - os: linux-amd64
+          - os: linux
+            arch: amd64
             runner: ubuntu-22.04
-            arch: amd64
-          - os: linux-arm64
+          - os: linux
+            arch: arm64
             runner: ubuntu-22.04-arm
-            arch: arm64
-          - os: macos-amd64
-            runner: macos-15-intel # Intel x86_64 runner
+          - os: macos
             arch: amd64
-          - os: macos-arm64
-            runner: macos-latest # ARM64 Apple Silicon runner
+            runner: macos-15-intel
+          - os: macos
             arch: arm64
-          - os: windows-amd64
+            runner: macos-latest
+          - os: windows
+            arch: amd64
             runner: windows-latest
-            arch: amd64
     runs-on: ${{ matrix.runner }}
     needs: build
     env:
