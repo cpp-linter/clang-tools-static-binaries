@@ -421,6 +421,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--platform",
+        "-p",
         choices=[
             "linux-amd64",
             "linux-arm64",
@@ -438,6 +439,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--build-dir",
+        "-b",
         default=None,
         metavar="DIR",
         help="Working directory for downloads and build artifacts (default: current directory).",
