@@ -119,10 +119,10 @@ jobs:
           path: artifacts
           pattern: '**/*${{ env.suffix }}'
       - name: List files (macOS, Linux)
-        if: ${{ matrix.os == 'linux-amd64' || matrix.os == 'linux-arm64' || matrix.os == 'macos-amd64' || matrix.os == 'macos-arm64' }}
+        if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
         run: ls -laR artifacts/
       - name: Smoke test each clang tool (macOS, Linux)
-        if: ${{ matrix.os == 'linux-amd64' || matrix.os == 'linux-arm64' || matrix.os == 'macos-amd64' || matrix.os == 'macos-arm64' }}
+        if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
         run: |
           cd artifacts
           # From the artifacts directory, loop over each executable
@@ -140,12 +140,12 @@ jobs:
             $tool --version
           done
       - name: List files (Windows)
-        if: ${{ matrix.os == 'windows-amd64' }}
+        if: ${{ matrix.os == 'windows' }}
         run: |
           Get-ChildItem -Recurse artifacts | Format-List
 
       - name: Smoke test each clang tool (Windows)
-        if: ${{ matrix.os == 'windows-amd64' }}
+        if: ${{ matrix.os == 'windows' }}
         shell: pwsh
         run: |
           Set-Location artifacts
