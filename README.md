@@ -83,10 +83,10 @@ A Python build script is provided so you can reproduce any build on your own mac
 python build.py --version 18
 
 # explicitly target a platform
-python build.py --version 17 --os macos-arm64
+python build.py --version 17 --platform macos-arm64
 
 # write downloads and build artifacts to a custom directory
-python build.py --version 20 --os linux-amd64 --build-dir /tmp/llvm-build
+python build.py --version 20 --platform linux-amd64 --build-dir /tmp/llvm-build
 ```
 
 Run `python build.py --help` for the full list of options.

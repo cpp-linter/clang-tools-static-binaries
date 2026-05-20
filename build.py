@@ -16,8 +16,8 @@ Supported platforms
 Usage
 -----
   python build.py --version 18
-  python build.py --version 17 --os macos-arm64
-  python build.py --version 20 --os linux-amd64 --build-dir /tmp/llvm-build
+  python build.py --version 17 --platform macos-arm64
+  python build.py --version 20 --platform linux-amd64 --build-dir /tmp/llvm-build
   python build.py --help
 """
 
@@ -420,7 +420,7 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "--os",
+        "--platform",
         choices=[
             "linux-amd64",
             "linux-arm64",
@@ -430,7 +430,7 @@ def main() -> None:
         ],
         default=None,
         help=(
-            "Target OS/platform. Defaults to auto-detected host OS. "
+            "Target platform. Defaults to auto-detected host platform. "
             "linux-amd64=Linux x86-64, linux-arm64=Linux ARM64, "
             "macos-amd64=macOS x86-64, macos-arm64=macOS ARM64, "
             "windows-amd64=Windows x86-64."
