@@ -71,24 +71,20 @@ def detect_os() -> str:
     system_name = platform.system().lower()
 
     match system_name:
-        case "linux" | "darwin":
-            operating_system = "macos" if system_name == "darwin" else system_name
+        case "linux" | "windows":
+            return system_name
 
-            machine_type = platform.machine().lower()
-            architecture = "arm64" if machine_type in ("arm64", "aarch64") else "amd64"
-
-            return f"{operating_system}-{architecture}"
-
-        case "windows":
-            return "windows-amd64"
+        case "darwin":
+            return "macos"
 
         case _:
             raise RuntimeError(f"Unsupported operating system: {system_name!r}")
 
 
-def os_arch(os_name: str) -> Literal["amd64", "arm64"]:
+def detect_arch() -> Literal["amd64", "arm64"]:
     """Return the architecture string used in binary suffixes."""
-    return "arm64" if os_name.endswith("arm64") else "amd64"
+    machine_type = platform.machine().lower()
+    return "arm64" if machine_type in ("arm64", "aarch64") else "amd64"
 
 
 def sha512_file(path: Path) -> str:
@@ -288,15 +284,12 @@ def bin_dir(release: str, is_windows: bool) -> Path:
 
 
 def build(version: str, os_name: str, script_dir: Path) -> None:
-    # is_linux = os_name.startswith("linux")
     is_macos = os_name.startswith("macos")
     is_windows = os_name.startswith("windows")
-
-    architecture_string = os_arch(os_name)
-    is_arm = architecture_string.startswith("arm")
+    is_arm = os_name.endswith("arm64")
 
     release = RELEASES[version]
-    suffix = f"{version}_{os_name}-{architecture_string}"
+    suffix = f"{version}_{os_name}"
     dot_exe = ".exe" if is_windows else ""
 
     print(f"\n{'=' * 60}")
@@ -451,7 +444,7 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-    os_name = args.os or detect_os()
+    os_name = args.os or f"{detect_os()}-{detect_arch()}"
     script_dir = Path(__file__).parent.resolve()
 
     if args.build_dir:
