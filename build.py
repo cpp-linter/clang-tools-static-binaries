@@ -71,13 +71,12 @@ def detect_os() -> str:
     system = platform.system().lower()
 
     match system:
-        case "linux":
+        case "linux" | "darwin":
             machine = platform.machine().lower()
-            return "linux-arm64" if machine == "arm64" else "linux-amd64"
+            operating_system = "macos" if system == "darwin" else system
+            architecture = "arm64" if machine in ("arm64", "aarch64") else "amd64"
 
-        case "darwin":
-            machine = platform.machine().lower()
-            return "macos-arm64" if machine == "arm64" else "macos-amd64"
+            return f"{operating_system}-{architecture}"
 
         case "windows":
             return "windows-amd64"
