@@ -122,10 +122,10 @@ jobs:
         with:
           path: artifacts
           pattern: '**/*${{ env.suffix }}'
-      - name: List files (macOS, Linux)
+      - name: List files (Linux, macOS)
         if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
         run: ls -laR artifacts/
-      - name: Smoke test each clang tool (macOS, Linux)
+      - name: Smoke test each clang tool (Linux, macOS)
         if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
         run: |
           cd artifacts
