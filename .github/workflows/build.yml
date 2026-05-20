@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         clang-version: [ 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12.0.1, 12, 11]
-        os: [ linux-amd64, linux-arm64, macos-amd64, macos-arm64, windows-amd64 ]
+        platform: [ linux-amd64, linux-arm64, macos-amd64, macos-arm64, windows-amd64 ]
         include:
           - clang-version: 22
             release: llvm-project-22.1.0.src
@@ -52,19 +52,24 @@ jobs:
             release: llvm-project-12.0.0.src
           - clang-version: 11
             release: llvm-project-11.1.0.src
-          - os: linux
+          - platform: linux-amd64
+            os: linux
             arch: amd64
             runner: ubuntu-22.04
-          - os: linux
+          - platform: linux-arm64
+            os: linux
             arch: arm64
             runner: ubuntu-22.04-arm
-          - os: macos
+          - platform: macos-amd64
+            os: macos
             arch: amd64
             runner: macos-15-intel
-          - os: macos
+          - platform: macos-arm64
+            os: macos
             arch: arm64
             runner: macos-latest
-          - os: windows
+          - platform: windows-amd64
+            os: windows
             arch: amd64
             runner: windows-latest
     runs-on: ${{ matrix.runner }}
@@ -91,7 +96,6 @@ jobs:
     permissions: {}
     strategy:
       matrix:
-        os: [ linux-amd64, linux-arm64, macos-amd64, macos-arm64, windows-amd64 ]
         include:
           - os: linux
             arch: amd64
