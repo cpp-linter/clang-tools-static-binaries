@@ -56,7 +56,7 @@ jobs:
             runner: ubuntu-22.04
             arch: amd64
           - os: linux-arm64
-            runner: ubuntu-22.04
+            runner: ubuntu-22.04-arm
             arch: arm64
           - os: macos-amd64
             runner: macos-15-intel
@@ -97,7 +97,7 @@ jobs:
             runner: ubuntu-22.04
             arch: amd64
           - os: linux-arm64
-            runner: ubuntu-22.04
+            runner: ubuntu-22.04-arm
             arch: arm64
           - os: macos-amd64
             runner: macos-15-intel # Intel x86_64 runner
