@@ -283,17 +283,17 @@ def bin_dir(release: str, is_windows: bool) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def build(version: str, os_name: str, script_dir: Path) -> None:
-    is_macos = os_name.startswith("macos")
-    is_windows = os_name.startswith("windows")
-    is_arm = os_name.endswith("arm64")
+def build(version: str, target_platform: str, script_dir: Path) -> None:
+    is_macos = target_platform.startswith("macos")
+    is_windows = target_platform.startswith("windows")
+    is_arm = target_platform.endswith("arm64")
 
     release = RELEASES[version]
-    suffix = f"{version}_{os_name}"
+    suffix = f"{version}_{target_platform}"
     dot_exe = ".exe" if is_windows else ""
 
     print(f"\n{'=' * 60}")
-    print(f"Building clang-tools {version} for {os_name}")
+    print(f"Building clang-tools {version} for {target_platform}")
     print(f"  release : {release}")
     print(f"  suffix  : {suffix}")
     print(f"{'=' * 60}\n")
@@ -345,7 +345,7 @@ def build(version: str, os_name: str, script_dir: Path) -> None:
         "cmake",
         "-S", str(source_dir),
         "-B", str(build_dir),
-    ] + CMAKE_ARGS_BY_OS[os_name]()
+    ] + CMAKE_ARGS_BY_OS[target_platform]()
 
     run(cmake_cmd)
 
@@ -443,17 +443,17 @@ def main() -> None:
         help="Working directory for downloads and build artifacts (default: current directory).",
     )
 
-    args = parser.parse_args()
-    os_name = args.os or f"{detect_os()}-{detect_arch()}"
+    arguments = parser.parse_args()
+    target_platform = arguments.os or f"{detect_os()}-{detect_arch()}"
     script_dir = Path(__file__).parent.resolve()
 
-    if args.build_dir:
-        build_path = Path(args.build_dir)
+    if arguments.build_dir:
+        build_path = Path(arguments.build_dir)
         build_path.mkdir(parents=True, exist_ok=True)
         os.chdir(build_path)
 
     try:
-        build(args.version, os_name, script_dir)
+        build(arguments.version, target_platform, script_dir)
     except subprocess.CalledProcessError as exc:
         print(f"\nBuild failed (exit code {exc.returncode}).", file=sys.stderr)
         sys.exit(exc.returncode)
