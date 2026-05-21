@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         clang-version: [ 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12.0.1, 12, 11]
-        os: [ linux, macosx, macos-intel, windows ]
+        platform: [ linux-amd64, linux-arm64, macos-amd64, macos-arm64, windows-amd64 ]
         include:
           - clang-version: 22
             release: llvm-project-22.1.0.src
@@ -52,18 +52,26 @@ jobs:
             release: llvm-project-12.0.0.src
           - clang-version: 11
             release: llvm-project-11.1.0.src
-          - os: linux
+          - platform: linux-amd64
+            os: linux
+            arch: amd64
             runner: ubuntu-22.04
-            arch: amd64
-          - os: macosx
-            runner: macos-latest
+          - platform: linux-arm64
+            os: linux
             arch: arm64
-          - os: macos-intel
+            runner: ubuntu-22.04-arm
+          - platform: macos-amd64
+            os: macos
+            arch: amd64
             runner: macos-15-intel
+          - platform: macos-arm64
+            os: macos
+            arch: arm64
+            runner: macos-latest
+          - platform: windows-amd64
+            os: windows
             arch: amd64
-          - os: windows
             runner: windows-latest
-            arch: amd64
     runs-on: ${{ matrix.runner }}
     env:
       RELEASE: '${{ matrix.release }}'
@@ -76,7 +84,7 @@ jobs:
       run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
     - name: Build
       shell: bash
-      run: python3 build.py --version "${{ matrix.clang-version }}" --os ${{ matrix.os }}
+      run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
       with:
@@ -88,35 +96,37 @@ jobs:
     permissions: {}
     strategy:
       matrix:
-        os: [ linux, macosx, macos-intel, windows ]
         include:
           - os: linux
+            arch: amd64
             runner: ubuntu-22.04
-            arch: amd64
-          - os: macosx
-            runner: macos-latest # ARM64 Apple Silicon runner
+          - os: linux
             arch: arm64
-          - os: macos-intel
-            runner: macos-15-intel # Intel x86_64 runner
+            runner: ubuntu-22.04-arm
+          - os: macos
             arch: amd64
+            runner: macos-15-intel
+          - os: macos
+            arch: arm64
+            runner: macos-latest
           - os: windows
-            runner: windows-latest
             arch: amd64
+            runner: windows-latest
     runs-on: ${{ matrix.runner }}
     needs: build
     env:
       suffix: '_${{ matrix.os }}-${{ matrix.arch }}'
     steps:
-      - name: download artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
           path: artifacts
           pattern: '**/*${{ env.suffix }}'
-      - name: List files (macos, linux)
-        if: ${{ matrix.os == 'macosx' || matrix.os == 'macos-intel' || matrix.os == 'linux' }}
+      - name: List files (Linux, macOS)
+        if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
         run: ls -laR artifacts/
-      - name: Smoke test each clang tool (macos, linux)
-        if: ${{ matrix.os == 'macosx' || matrix.os == 'macos-intel' || matrix.os == 'linux' }}
+      - name: Smoke test each clang tool (Linux, macOS)
+        if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
         run: |
           cd artifacts
           # From the artifacts directory, loop over each executable

@@ -1,6 +1,7 @@
 # clang-tools static binaries
 
 <!-- [![Test](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml) -->
+
 [![Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml)
 ![](https://img.shields.io/badge/platform-linux--64%20%7C%20win--64%20%7C%20osx--arm64%20%7C%20osx--64-blue)
 ![Maintenance](https://img.shields.io/maintenance/yes/2026)
@@ -9,24 +10,28 @@ Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-
 
 ## Clang Tools Version Support Matrix
 
-| Clang Tools |OS/Version |22|21|20|19 |18 |17 |16 |15 |14 |13 |12 |11 |
-|:------------|-----------|--|--|--|---|---|---|---|---|---|---|---|---|
-|clang-format |Linux 64   |✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |Window 64  |✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |macOS ARM64|✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |macOS x86_64|✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-| clang-tidy  |Linux 64   |✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |Window 64  |✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |macOS ARM64|✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |macOS x86_64|✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-| clang-query |Linux 64   |✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |Window 64  |✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |macOS ARM64|✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |macOS x86_64|✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-| clang-apply-replacements| Linux 64|✔️|✔️|✔️|✔️|✔️|✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|
-|             |Window 64  |✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |macOS ARM64|✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
-|             |macOS x86_64|✔️|✔️|✔️|✔️ |✔️|✔️|✔️ |✔️|✔️ |✔️ |✔️|✔️|
+| Clang Tools              | OS/Version     | 22  | 21  | 20  | 19  | 18  | 17  | 16  | 15  | 14  | 13  | 12  | 11  |
+| :----------------------- | -------------- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| clang-format             | Linux x86-64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Linux ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | macOS x86_64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | macOS ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Windows x86-64 | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| clang-tidy               | Linux x86-64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Linux ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | macOS x86_64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | macOS ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Windows x86-64 | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| clang-query              | Linux x86-64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Linux ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | macOS x86_64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | macOS ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Windows x86-64 | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| clang-apply-replacements | Linux x86-64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Linux ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | macOS x86_64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | macOS ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Windows x86-64 | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 
 > [!NOTE]
 >
@@ -40,8 +45,8 @@ Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-
 
 ## Download
 
-* Download clang-tools static binaries for your platform from the [Releases](https://github.com/cpp-linter/clang-tools-static-binaries/releases) tab.
-* Alternatively, use the [pip](https://github.com/cpp-linter/clang-tools-pip) or [asdf](https://github.com/cpp-linter/asdf-clang-tools) to download and manage them.
+- Download clang-tools static binaries for your platform from the [Releases](https://github.com/cpp-linter/clang-tools-static-binaries/releases) tab.
+- Alternatively, use the [pip](https://github.com/cpp-linter/clang-tools-pip) or [asdf](https://github.com/cpp-linter/asdf-clang-tools) to download and manage them.
 
 ## Motivation behind this repo
 
@@ -51,6 +56,7 @@ I could either compile clang-format for each one I want to have or I could try m
 This can very quickly get out of hand, hence I created this repository.
 
 These binaries aim to:
+
 - be as small as possible
 - not require any additional dependencies apart from OS itself
 
@@ -62,11 +68,12 @@ A Python build script is provided so you can reproduce any build on your own mac
 
 **Prerequisites** (install once per platform):
 
-| Platform | Requirements |
-|---|---|
-| Linux x86-64 | `gcc-10`, `cmake`, `make` |
-| macOS ARM64 | Homebrew, `gcc@14`, `cmake` |
-| macOS x86-64 | Homebrew, `gcc@14`, `cmake` |
+| Platform       | Requirements                          |
+| -------------- | ------------------------------------- |
+| Linux x86-64   | `gcc-10`, `cmake`, `make`             |
+| Linux ARM64    | `gcc-10`, `cmake`, `make`             |
+| macOS x86-64   | Homebrew, `gcc@14`, `cmake`           |
+| macOS ARM64    | Homebrew, `gcc@14`, `cmake`           |
 | Windows x86-64 | Visual Studio with C++ tools, `cmake` |
 
 **Run the script:**
@@ -76,10 +83,10 @@ A Python build script is provided so you can reproduce any build on your own mac
 python build.py --version 18
 
 # explicitly target a platform
-python build.py --version 17 --os macosx
+python build.py --version 17 --platform macos-arm64
 
 # write downloads and build artifacts to a custom directory
-python build.py --version 20 --os linux --build-dir /tmp/llvm-build
+python build.py --version 20 --platform linux-amd64 --build-dir /tmp/llvm-build
 ```
 
 Run `python build.py --help` for the full list of options.
