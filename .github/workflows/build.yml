@@ -84,7 +84,7 @@ jobs:
       run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
     - name: Build
       shell: bash
-      run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.os }}-${{ matrix.arch }}
+      run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
       with:
