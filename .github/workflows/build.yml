@@ -91,7 +91,7 @@ jobs:
         name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
         path: "${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*"
         # ** covers both bin/ (Linux/macOS) and MinSizeRel/bin/ (Windows)
-        retention-days: 1
+        retention-days: 3
   test-release:
     permissions: {}
     strategy:
