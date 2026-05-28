@@ -27,7 +27,7 @@ If you prefer not to trust pre-built binaries, you have two options:
 
 If you discover a vulnerability in a binary or in the build process, please:
 
-1. **Do not open a public issue.**  
+1. **Do not open a public issue.**
 2. Email the maintainers at the address listed on the [cpp-linter organization page](https://github.com/cpp-linter).
 
 We treat reports seriously and will respond as quickly as possible.
