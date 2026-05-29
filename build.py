@@ -49,7 +49,7 @@ RELEASES: dict[str, str] = {
     "14": "llvm-project-14.0.0.src",
     "13": "llvm-project-13.0.0.src",
     "12.0.1": "llvm-project-12.0.1.src",
-    "12": "llvm-project-12.0.0.src",
+    "12": "llvm-project-12.0.1.src",
     "11": "llvm-project-11.1.0.src",
 }
 
