@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        clang-version: [ 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12.0.1, 12, 11]
+        clang-version: [ 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11]
         platform: [ linux-amd64, linux-arm64, macos-amd64, macos-arm64, windows-amd64 ]
         include:
           - clang-version: 22
@@ -46,10 +46,8 @@ jobs:
             release: llvm-project-14.0.0.src
           - clang-version: 13
             release: llvm-project-13.0.0.src
-          - clang-version: 12.0.1
-            release: llvm-project-12.0.1.src
           - clang-version: 12
-            release: llvm-project-12.0.0.src
+            release: llvm-project-12.0.1.src
           - clang-version: 11
             release: llvm-project-11.1.0.src
           - platform: linux-amd64
