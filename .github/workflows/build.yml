@@ -194,11 +194,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Create draft release (ignore error if it already exists)
+          # Create draft release with auto-generated notes (ignore error if already exists)
           gh release create "$TAG" \
             --draft \
+            --prerelease \
             --title "$TAG" \
-            --notes "Draft release for commit ${{ github.sha }}" \
+            --generate-notes \
             2>/dev/null || true
 
           # Upload a single file with retry + exponential backoff
