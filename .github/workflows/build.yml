@@ -187,14 +187,61 @@ jobs:
         run: ls -laR .
       - name: Workaround - delete all files over 2G, above github release file upload limit
         run: find . -type f -size +2G -exec rm -v {} \;
-      - name: Draft release
+      - name: Create draft release and upload assets
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: "master-${{ steps.get-sha.outputs.short_sha }}"
-          release_name: "master-${{ steps.get-sha.outputs.short_sha }}"
-          draft: true
-          file_glob: true
-          file: clang-*/**/*
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: "master-${{ steps.get-sha.outputs.short_sha }}"
+        run: |
+          set -euo pipefail
+
+          # Create draft release (ignore error if it already exists)
+          gh release create "$TAG" \
+            --draft \
+            --title "$TAG" \
+            --notes "Draft release for commit ${{ github.sha }}" \
+            2>/dev/null || true
+
+          # Upload a single file with retry + exponential backoff
+          upload_with_retry() {
+            local file="$1"
+            local max_retries=5
+            local delay=10
+
+            for i in $(seq 1 $max_retries); do
+              if gh release upload "$TAG" "$file" 2>&1; then
+                echo "::notice::Uploaded: $file"
+                return 0
+              fi
+
+              if [[ $i -ge $max_retries ]]; then
+                echo "::error::Failed to upload $file after $max_retries attempts"
+                return 1
+              fi
+
+              echo "::warning::Upload failed for $file (attempt $i/$max_retries). Retrying in ${delay}s..."
+              sleep "$delay"
+              delay=$((delay * 2))
+            done
+          }
+
+          # Collect all files and upload one-by-one with a small delay
+          mapfile -t files < <(find clang-* -type f)
+
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "::warning::No files found to upload"
+            exit 0
+          fi
+
+          echo "Found ${#files[@]} files to upload"
+          failed=0
+          for file in "${files[@]}"; do
+            upload_with_retry "$file" || failed=1
+            sleep 1
+          done
+
+          if [[ $failed -ne 0 ]]; then
+            echo "::error::Some uploads failed. Check the logs above."
+            exit 1
+          fi
+
+          echo "::notice::All ${#files[@]} files uploaded successfully."
