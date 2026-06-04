@@ -6,11 +6,13 @@ on:
     paths:
       - ".github/workflows/build.yml"
       - "build.py"
+      - "release.py"
   pull_request:
     branches: [ master ]
     paths:
       - ".github/workflows/build.yml"
       - "build.py"
+      - "release.py"
   workflow_dispatch:
 
 concurrency:
@@ -187,36 +189,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v8
       - name: Generate versions.json and release notes
-        env:
-          TAG: "${{ steps.get-date.outputs.date }}-${{ steps.get-sha.outputs.short_sha }}"
-        run: |
-          python3 -c "
-          import json, os, sys
-          from datetime import datetime, timezone
-          sys.path.insert(0, '.')
-          import build
-
-          tag = os.environ['TAG']
-
-          # Generate versions.json
-          data = {
-              'built_at': datetime.now(timezone.utc).isoformat(),
-              'release_tag': tag,
-              'llvm_versions': build.RELEASES
-          }
-          with open('versions.json', 'w') as f:
-              json.dump(data, f, indent=2)
-          print(f'Created versions.json with {len(build.RELEASES)} versions')
-
-          # Generate release notes
-          lines = ['## LLVM Versions in this release', '', '| Version | Source |', '|---------|--------|']
-          for ver, src in sorted(build.RELEASES.items(), key=lambda x: int(x[0].split('.')[0])):
-              lines.append(f'| {ver} | {src} |')
-          lines += ['', '## Platforms', 'Linux x86-64 / Linux ARM64 / macOS x86-64 / macOS ARM64 / Windows x86-64']
-          with open('release-notes.md', 'w') as f:
-              f.write('\n'.join(lines) + '\n')
-          print('Created release-notes.md')
-          "
+        run: python3 release.py --tag "${{ steps.get-date.outputs.date }}-${{ steps.get-sha.outputs.short_sha }}"
       - name: List files
         run: ls -laR .
       - name: Workaround - delete all files over 2G, above github release file upload limit
