@@ -35,6 +35,7 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
+
 # ---------------------------------------------------------------------------
 # Version -> source release mapping (loaded from releases.json)
 # ---------------------------------------------------------------------------
@@ -131,9 +132,7 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
     with tarfile.open(tarball, "r:xz") as tf:
         members = []
         for member in tf.getmembers():
-            skip = any(
-                member.name.startswith(excl.rstrip("*")) for excl in excludes
-            )
+            skip = any(member.name.startswith(excl.rstrip("*")) for excl in excludes)
             if not skip:
                 members.append(member)
         tf.extractall(path=".", members=members)  # noqa: S202 - we own the source
@@ -142,9 +141,7 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
 def patch_cmake_implicit_link_macos() -> None:
     """Patch brew's CMakeParseImplicitLinkInfo.cmake to recognise gcc_ext."""
     try:
-        brew_prefix = subprocess.check_output(
-            ["brew", "--prefix"], text=True
-        ).strip()
+        brew_prefix = subprocess.check_output(["brew", "--prefix"], text=True).strip()
     except FileNotFoundError:
         print("[warn] brew not found; skipping cmake implicit-link-library patch.")
         return
@@ -326,7 +323,9 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         if patch_path.exists():
             apply_patch(patch_path, Path(release))
         else:
-            print(f"[warn] Patch not found at {patch_path}; skipping ARM streaming fix.")
+            print(
+                f"[warn] Patch not found at {patch_path}; skipping ARM streaming fix."
+            )
 
     # ------------------------------------------------------------------
     # 4. CMake configure
@@ -337,8 +336,10 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
 
     cmake_cmd = [
         "cmake",
-        "-S", str(source_dir),
-        "-B", str(build_dir),
+        "-S",
+        str(source_dir),
+        "-B",
+        str(build_dir),
     ] + CMAKE_ARGS_BY_OS[target_platform]()
 
     run(cmake_cmd)
@@ -346,12 +347,21 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # ------------------------------------------------------------------
     # 5. Build
     # ------------------------------------------------------------------
-    build_cmd = [
-        "cmake", "--build", str(build_dir),
-    ] + build_args_by_os(is_windows) + [
-        "--target",
-        "clang-format", "clang-query", "clang-tidy", "clang-apply-replacements",
-    ]
+    build_cmd = (
+        [
+            "cmake",
+            "--build",
+            str(build_dir),
+        ]
+        + build_args_by_os(is_windows)
+        + [
+            "--target",
+            "clang-format",
+            "clang-query",
+            "clang-tidy",
+            "clang-apply-replacements",
+        ]
+    )
     run(build_cmd)
 
     # ------------------------------------------------------------------
