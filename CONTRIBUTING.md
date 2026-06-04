@@ -15,7 +15,7 @@ The script mirrors exactly what CI does: download LLVM source → configure with
 
 ## Ways to Contribute
 
-- **Add a new clang version** — Update `RELEASES` in `build.py` and the version matrix in `.github/workflows/build.yml`.
+- **Add a new clang version** — Add the version-to-tarball mapping to `releases.json`. The CI matrix is generated automatically from this file.
 - **Fix a build** — Look for failures in the [Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml) workflow.
 - **Improve documentation** — Clarify README, add platform notes, etc.
 

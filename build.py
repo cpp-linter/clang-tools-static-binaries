@@ -26,6 +26,7 @@ from typing import Any, Literal
 
 import argparse
 import hashlib
+import json
 import os
 import platform
 import subprocess
@@ -35,22 +36,16 @@ import urllib.request
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Version -> source release mapping (must stay in sync with build.yml)
+# Version -> source release mapping (loaded from releases.json)
 # ---------------------------------------------------------------------------
-RELEASES: dict[str, str] = {
-    "22": "llvm-project-22.1.0.src",
-    "21": "llvm-project-21.1.0.src",
-    "20": "llvm-project-20.1.0.src",
-    "19": "llvm-project-19.1.0.src",
-    "18": "llvm-project-18.1.5.src",
-    "17": "llvm-project-17.0.6.src",
-    "16": "llvm-project-16.0.3.src",
-    "15": "llvm-project-15.0.2.src",
-    "14": "llvm-project-14.0.0.src",
-    "13": "llvm-project-13.0.0.src",
-    "12": "llvm-project-12.0.1.src",
-    "11": "llvm-project-11.1.0.src",
-}
+def _load_releases() -> dict[str, str]:
+    """Load the version-to-tarball mapping from releases.json."""
+    releases_path = Path(__file__).parent / "releases.json"
+    with open(releases_path) as f:
+        return json.load(f)
+
+
+RELEASES: dict[str, str] = _load_releases()
 
 TOOLS = ["clang-format", "clang-query", "clang-tidy", "clang-apply-replacements"]
 

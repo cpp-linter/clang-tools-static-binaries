@@ -7,12 +7,14 @@ on:
       - ".github/workflows/build.yml"
       - "build.py"
       - "release.py"
+      - "releases.json"
   pull_request:
     branches: [ master ]
     paths:
       - ".github/workflows/build.yml"
       - "build.py"
       - "release.py"
+      - "releases.json"
   workflow_dispatch:
 
 concurrency:
@@ -20,58 +22,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  generate-matrix:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Generate build matrix from releases.json
+        id: set-matrix
+        run: |
+          MATRIX=$(python3 << 'PYEOF'
+          import json
+          with open('releases.json') as f:
+              releases = json.load(f)
+          platforms = [
+              {'platform': 'linux-amd64', 'os': 'linux', 'arch': 'amd64', 'runner': 'ubuntu-22.04'},
+              {'platform': 'linux-arm64', 'os': 'linux', 'arch': 'arm64', 'runner': 'ubuntu-22.04-arm'},
+              {'platform': 'macos-amd64', 'os': 'macos', 'arch': 'amd64', 'runner': 'macos-15-intel'},
+              {'platform': 'macos-arm64', 'os': 'macos', 'arch': 'arm64', 'runner': 'macos-latest'},
+              {'platform': 'windows-amd64', 'os': 'windows', 'arch': 'amd64', 'runner': 'windows-latest'},
+          ]
+          include = [{'clang-version': v, 'release': r} for v, r in releases.items()]
+          include.extend(platforms)
+          matrix = {
+              'clang-version': sorted(releases.keys(), key=int),
+              'platform': [p['platform'] for p in platforms],
+              'include': include,
+          }
+          print(json.dumps(matrix))
+          PYEOF
+          )
+          printf 'build-matrix=%s\n' "$MATRIX" >> "$GITHUB_OUTPUT"
   build:
+    needs: generate-matrix
     permissions: {}
     strategy:
       fail-fast: false
-      matrix:
-        clang-version: [ 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11]
-        platform: [ linux-amd64, linux-arm64, macos-amd64, macos-arm64, windows-amd64 ]
-        include:
-          - clang-version: 22
-            release: llvm-project-22.1.0.src
-          - clang-version: 21
-            release: llvm-project-21.1.0.src
-          - clang-version: 20
-            release: llvm-project-20.1.0.src
-          - clang-version: 19
-            release: llvm-project-19.1.0.src
-          - clang-version: 18
-            release: llvm-project-18.1.5.src
-          - clang-version: 17
-            release: llvm-project-17.0.6.src
-          - clang-version: 16
-            release: llvm-project-16.0.3.src
-          - clang-version: 15
-            release: llvm-project-15.0.2.src
-          - clang-version: 14
-            release: llvm-project-14.0.0.src
-          - clang-version: 13
-            release: llvm-project-13.0.0.src
-          - clang-version: 12
-            release: llvm-project-12.0.1.src
-          - clang-version: 11
-            release: llvm-project-11.1.0.src
-          - platform: linux-amd64
-            os: linux
-            arch: amd64
-            runner: ubuntu-22.04
-          - platform: linux-arm64
-            os: linux
-            arch: arm64
-            runner: ubuntu-22.04-arm
-          - platform: macos-amd64
-            os: macos
-            arch: amd64
-            runner: macos-15-intel
-          - platform: macos-arm64
-            os: macos
-            arch: arm64
-            runner: macos-latest
-          - platform: windows-amd64
-            os: windows
-            arch: amd64
-            runner: windows-latest
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.build-matrix) }}
     runs-on: ${{ matrix.runner }}
     env:
       RELEASE: '${{ matrix.release }}'
