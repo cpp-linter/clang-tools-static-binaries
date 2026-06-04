@@ -1,0 +1,14 @@
+{
+  "22": "llvm-project-22.1.0.src",
+  "21": "llvm-project-21.1.0.src",
+  "20": "llvm-project-20.1.0.src",
+  "19": "llvm-project-19.1.0.src",
+  "18": "llvm-project-18.1.5.src",
+  "17": "llvm-project-17.0.6.src",
+  "16": "llvm-project-16.0.3.src",
+  "15": "llvm-project-15.0.2.src",
+  "14": "llvm-project-14.0.0.src",
+  "13": "llvm-project-13.0.0.src",
+  "12": "llvm-project-12.0.1.src",
+  "11": "llvm-project-11.1.0.src"
+}

@@ -4,9 +4,17 @@ repos:
     hooks:
       - id: trailing-whitespace
         exclude: '\.patch$'
-      - id: check-yaml
       - id: end-of-file-fixer
         exclude: '\.patch$'
       - id: check-added-large-files
         args: ['--maxkb=100']
       - id: check-merge-conflict
+      - id: check-json
+      - id: check-yaml
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.16
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format

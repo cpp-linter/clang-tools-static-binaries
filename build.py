@@ -26,6 +26,7 @@ from typing import Any, Literal
 
 import argparse
 import hashlib
+import json
 import os
 import platform
 import subprocess
@@ -34,23 +35,18 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
+
 # ---------------------------------------------------------------------------
-# Version -> source release mapping (must stay in sync with build.yml)
+# Version -> source release mapping (loaded from releases.json)
 # ---------------------------------------------------------------------------
-RELEASES: dict[str, str] = {
-    "22": "llvm-project-22.1.0.src",
-    "21": "llvm-project-21.1.0.src",
-    "20": "llvm-project-20.1.0.src",
-    "19": "llvm-project-19.1.0.src",
-    "18": "llvm-project-18.1.5.src",
-    "17": "llvm-project-17.0.6.src",
-    "16": "llvm-project-16.0.3.src",
-    "15": "llvm-project-15.0.2.src",
-    "14": "llvm-project-14.0.0.src",
-    "13": "llvm-project-13.0.0.src",
-    "12": "llvm-project-12.0.1.src",
-    "11": "llvm-project-11.1.0.src",
-}
+def _load_releases() -> dict[str, str]:
+    """Load the version-to-tarball mapping from releases.json."""
+    releases_path = Path(__file__).parent / "releases.json"
+    with open(releases_path) as f:
+        return json.load(f)
+
+
+RELEASES: dict[str, str] = _load_releases()
 
 TOOLS = ["clang-format", "clang-query", "clang-tidy", "clang-apply-replacements"]
 
@@ -136,9 +132,7 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
     with tarfile.open(tarball, "r:xz") as tf:
         members = []
         for member in tf.getmembers():
-            skip = any(
-                member.name.startswith(excl.rstrip("*")) for excl in excludes
-            )
+            skip = any(member.name.startswith(excl.rstrip("*")) for excl in excludes)
             if not skip:
                 members.append(member)
         tf.extractall(path=".", members=members)  # noqa: S202 - we own the source
@@ -147,9 +141,7 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
 def patch_cmake_implicit_link_macos() -> None:
     """Patch brew's CMakeParseImplicitLinkInfo.cmake to recognise gcc_ext."""
     try:
-        brew_prefix = subprocess.check_output(
-            ["brew", "--prefix"], text=True
-        ).strip()
+        brew_prefix = subprocess.check_output(["brew", "--prefix"], text=True).strip()
     except FileNotFoundError:
         print("[warn] brew not found; skipping cmake implicit-link-library patch.")
         return
@@ -331,7 +323,9 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         if patch_path.exists():
             apply_patch(patch_path, Path(release))
         else:
-            print(f"[warn] Patch not found at {patch_path}; skipping ARM streaming fix.")
+            print(
+                f"[warn] Patch not found at {patch_path}; skipping ARM streaming fix."
+            )
 
     # ------------------------------------------------------------------
     # 4. CMake configure
@@ -342,8 +336,10 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
 
     cmake_cmd = [
         "cmake",
-        "-S", str(source_dir),
-        "-B", str(build_dir),
+        "-S",
+        str(source_dir),
+        "-B",
+        str(build_dir),
     ] + CMAKE_ARGS_BY_OS[target_platform]()
 
     run(cmake_cmd)
@@ -351,12 +347,21 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # ------------------------------------------------------------------
     # 5. Build
     # ------------------------------------------------------------------
-    build_cmd = [
-        "cmake", "--build", str(build_dir),
-    ] + build_args_by_os(is_windows) + [
-        "--target",
-        "clang-format", "clang-query", "clang-tidy", "clang-apply-replacements",
-    ]
+    build_cmd = (
+        [
+            "cmake",
+            "--build",
+            str(build_dir),
+        ]
+        + build_args_by_os(is_windows)
+        + [
+            "--target",
+            "clang-format",
+            "clang-query",
+            "clang-tidy",
+            "clang-apply-replacements",
+        ]
+    )
     run(build_cmd)
 
     # ------------------------------------------------------------------
