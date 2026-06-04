@@ -47,6 +47,7 @@ Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-
 
 - Download clang-tools static binaries for your platform from the [Releases](https://github.com/cpp-linter/clang-tools-static-binaries/releases) tab.
 - Alternatively, use the [pip](https://github.com/cpp-linter/clang-tools-pip) or [asdf](https://github.com/cpp-linter/asdf-clang-tools) to download and manage them.
+- For programmatic access, the latest release includes a [`versions.json`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/versions.json) file that maps each clang tool version to its LLVM source release (e.g., `{"18": "llvm-project-18.1.5.src"}`). This is a stable machine-readable entry point for scripts and downstream tools.
 
 ## Motivation behind this repo
 

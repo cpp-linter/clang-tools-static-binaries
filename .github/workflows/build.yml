@@ -6,11 +6,13 @@ on:
     paths:
       - ".github/workflows/build.yml"
       - "build.py"
+      - "release.py"
   pull_request:
     branches: [ master ]
     paths:
       - ".github/workflows/build.yml"
       - "build.py"
+      - "release.py"
   workflow_dispatch:
 
 concurrency:
@@ -181,8 +183,13 @@ jobs:
       - name: Get short SHA
         id: get-sha
         run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
+      - name: Get date
+        id: get-date
+        run: echo "date=$(date -u +'%Y.%m.%d')" >> $GITHUB_OUTPUT
       - name: Download artifacts
         uses: actions/download-artifact@v8
+      - name: Generate versions.json and release notes
+        run: python3 release.py --tag "${{ steps.get-date.outputs.date }}-${{ steps.get-sha.outputs.short_sha }}"
       - name: List files
         run: ls -laR .
       - name: Workaround - delete all files over 2G, above github release file upload limit
@@ -190,7 +197,7 @@ jobs:
       - name: Create draft release and upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: "master-${{ steps.get-sha.outputs.short_sha }}"
+          TAG: "${{ steps.get-date.outputs.date }}-${{ steps.get-sha.outputs.short_sha }}"
         run: |
           set -euo pipefail
 
@@ -199,7 +206,7 @@ jobs:
             --draft \
             --prerelease \
             --title "$TAG" \
-            --generate-notes \
+            --notes-file release-notes.md \
             2>/dev/null || true
 
           # Upload a single file with retry + exponential backoff
@@ -235,6 +242,8 @@ jobs:
 
           echo "Found ${#files[@]} files to upload"
           failed=0
+          # Upload versions.json
+          upload_with_retry "versions.json" || failed=1
           for file in "${files[@]}"; do
             upload_with_retry "$file" || failed=1
             sleep 1
