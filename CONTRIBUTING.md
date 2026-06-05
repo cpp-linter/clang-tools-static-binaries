@@ -19,6 +19,18 @@ The script mirrors exactly what CI does: download LLVM source → configure with
 - **Fix a build** — Look for failures in the [Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml) workflow.
 - **Improve documentation** — Clarify README, add platform notes, etc.
 
+## `releases.json`
+
+[`releases.json`](releases.json) maps clang major versions to LLVM source tarballs:
+
+```json
+{ "22": "llvm-project-22.1.0.src", ... }
+```
+
+The CI matrix, `build.py`, and `release.py` all read from this file. To add a new clang version, add an entry in descending order (newest first) and open a PR — CI will build all platforms automatically.
+
+Each GitHub Release also includes an **immutable** `versions.json` asset (generated from `releases.json` by `release.py`), available at `releases/latest/download/versions.json`.
+
 ## Pull Request Flow
 
 1. Fork the repo and create a branch.

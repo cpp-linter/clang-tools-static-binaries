@@ -99,6 +99,7 @@ binaries and their sha512sum files into `<release>/build/bin/`.
 
 ## How can I trust this repository?
 
+- Releases are **immutable** — once published, assets and metadata (`versions.json`) are never modified.
 - Verify sha512sums of binaries against output from GitHub Actions to make sure binaries are not modified
 - Fork this repository and run GitHub actions on your behalf
 - Build and test manually using `python build.py` (see above) or the steps in [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
