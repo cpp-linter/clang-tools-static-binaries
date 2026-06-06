@@ -64,7 +64,7 @@ def generate_release_notes(output_dir: str = ".") -> Path:
         "",
         "## Platforms",
         "",
-        "Linux x86-64 / Linux ARM64 / macOS x86-64 / macOS ARM64 / Windows x86-64",
+        "Linux x86-64 / Linux ARM64 / macOS x86-64 / macOS ARM64 / Windows x86-64 / Windows ARM64",
     ]
 
     out_path = Path(output_dir) / "release-notes.md"

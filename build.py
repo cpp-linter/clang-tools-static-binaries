@@ -12,6 +12,7 @@ Supported platforms
   macos-amd64    - macOS x86-64   (requires brew, gcc@14, cmake)
   macos-arm64    - macOS ARM64    (requires brew, gcc@14, cmake)
   windows-amd64  - Windows x86-64 (requires Visual Studio with C++ tools, cmake)
+  windows-arm64  - Windows ARM64  (requires Visual Studio with C++ tools, cmake)
 
 Usage
 -----
@@ -247,12 +248,23 @@ def cmake_args_windows_amd64() -> list[str]:
     ]
 
 
+def cmake_args_windows_arm64() -> list[str]:
+    return [
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra",
+        "-Thost=ARM64",
+        "-DCMAKE_CXX_FLAGS=/MP /std:c++14",
+        "-DLLVM_USE_CRT_MINSIZEREL=MT",
+    ]
+
+
 CMAKE_ARGS_BY_OS = {
     "linux-amd64": cmake_args_linux_amd64,
     "linux-arm64": cmake_args_linux_arm64,
     "macos-amd64": cmake_args_macos_amd64,
     "macos-arm64": cmake_args_macos_arm64,
     "windows-amd64": cmake_args_windows_amd64,
+    "windows-arm64": cmake_args_windows_arm64,
 }
 
 
@@ -432,13 +444,15 @@ def main() -> None:
             "macos-amd64",
             "macos-arm64",
             "windows-amd64",
+            "windows-arm64",
         ],
         default=None,
         help=(
             "Target platform. Defaults to auto-detected host platform. "
             "linux-amd64=Linux x86-64, linux-arm64=Linux ARM64, "
             "macos-amd64=macOS x86-64, macos-arm64=macOS ARM64, "
-            "windows-amd64=Windows x86-64."
+            "windows-amd64=Windows x86-64, "
+            "windows-arm64=Windows ARM64."
         ),
     )
     parser.add_argument(
