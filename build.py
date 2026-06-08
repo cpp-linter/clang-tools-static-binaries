@@ -245,7 +245,6 @@ def cmake_args_windows_amd64() -> list[str]:
         "-Thost=x64",
         "-DCMAKE_CXX_FLAGS=/MP /std:c++14",
         "-DLLVM_USE_CRT_MINSIZEREL=MT",
-        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     ]
 
 
@@ -256,7 +255,6 @@ def cmake_args_windows_arm64() -> list[str]:
         "-Thost=ARM64",
         "-DCMAKE_CXX_FLAGS=/MP /std:c++14",
         "-DLLVM_USE_CRT_MINSIZEREL=MT",
-        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     ]
 
 
@@ -355,6 +353,11 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         "-B",
         str(build_dir),
     ] + CMAKE_ARGS_BY_OS[target_platform]()
+
+    # LLVM 11 requires cmake_minimum_required(VERSION 3.4.3) which is below
+    # the 3.5 floor that newer CMake ships with (windows-11-arm runner).
+    if is_windows and is_arm and version == "11":
+        cmake_cmd.append("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
 
     run(cmake_cmd)
 
