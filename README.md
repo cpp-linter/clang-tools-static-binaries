@@ -1,6 +1,6 @@
 # clang-tools static binaries
 
-> 🏠 [← Back to cpp-linter hub](https://cpp-linter.github.io/)
+> [![cpp-linter hub](https://img.shields.io/badge/%F0%9F%8F%A0_cpp--linter_hub-%E2%86%90_home-22863a)](https://cpp-linter.github.io/)
 
 <!-- [![Test](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml) -->
 
