@@ -245,6 +245,7 @@ def cmake_args_windows_amd64() -> list[str]:
         "-Thost=x64",
         "-DCMAKE_CXX_FLAGS=/MP /std:c++14",
         "-DLLVM_USE_CRT_MINSIZEREL=MT",
+        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     ]
 
 
@@ -255,6 +256,7 @@ def cmake_args_windows_arm64() -> list[str]:
         "-Thost=ARM64",
         "-DCMAKE_CXX_FLAGS=/MP /std:c++14",
         "-DLLVM_USE_CRT_MINSIZEREL=MT",
+        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     ]
 
 
