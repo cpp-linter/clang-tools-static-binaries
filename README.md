@@ -3,8 +3,7 @@
 <!-- [![Test](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/test.yml) -->
 
 [![Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml)
-![](https://img.shields.io/badge/platform-linux--64%20%7C%20win--64%20%7C%20osx--arm64%20%7C%20osx--64-blue)
-![Maintenance](https://img.shields.io/maintenance/yes/2026)
+![](https://img.shields.io/badge/platform-linux--64%20%7C%20linux--arm64%20%7C%20macos--64%20%7C%20macos--arm64%20%7C%20windows--64%20%7C%20windows--arm64-blue)
 
 Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-tidy](https://clang.llvm.org/extra/clang-tidy/), [clang-query](https://github.com/llvm/llvm-project/tree/main/clang-tools-extra/clang-query) and [clang-apply-replacements](https://github.com/llvm/llvm-project/tree/main/clang-tools-extra/clang-apply-replacements)**.
 
@@ -17,21 +16,25 @@ Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-
 |                          | macOS x86_64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | macOS ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | Windows x86-64 | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Windows ARM64  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 | clang-tidy               | Linux x86-64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | Linux ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | macOS x86_64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | macOS ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | Windows x86-64 | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Windows ARM64  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 | clang-query              | Linux x86-64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | Linux ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | macOS x86_64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | macOS ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | Windows x86-64 | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Windows ARM64  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 | clang-apply-replacements | Linux x86-64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | Linux ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | macOS x86_64   | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | macOS ARM64    | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 |                          | Windows x86-64 | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+|                          | Windows ARM64  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 
 > [!NOTE]
 >
@@ -76,6 +79,7 @@ A Python build script is provided so you can reproduce any build on your own mac
 | macOS x86-64   | Homebrew, `gcc@14`, `cmake`           |
 | macOS ARM64    | Homebrew, `gcc@14`, `cmake`           |
 | Windows x86-64 | Visual Studio with C++ tools, `cmake` |
+| Windows ARM64  | Visual Studio with C++ tools, `cmake` |
 
 **Run the script:**
 

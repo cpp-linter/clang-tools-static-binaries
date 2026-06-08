@@ -12,6 +12,7 @@ Supported platforms
   macos-amd64    - macOS x86-64   (requires brew, gcc@14, cmake)
   macos-arm64    - macOS ARM64    (requires brew, gcc@14, cmake)
   windows-amd64  - Windows x86-64 (requires Visual Studio with C++ tools, cmake)
+  windows-arm64  - Windows ARM64  (requires Visual Studio with C++ tools, cmake)
 
 Usage
 -----
@@ -247,12 +248,23 @@ def cmake_args_windows_amd64() -> list[str]:
     ]
 
 
+def cmake_args_windows_arm64() -> list[str]:
+    return [
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra",
+        "-Thost=ARM64",
+        "-DCMAKE_CXX_FLAGS=/MP /std:c++14",
+        "-DLLVM_USE_CRT_MINSIZEREL=MT",
+    ]
+
+
 CMAKE_ARGS_BY_OS = {
     "linux-amd64": cmake_args_linux_amd64,
     "linux-arm64": cmake_args_linux_arm64,
     "macos-amd64": cmake_args_macos_amd64,
     "macos-arm64": cmake_args_macos_arm64,
     "windows-amd64": cmake_args_windows_amd64,
+    "windows-arm64": cmake_args_windows_arm64,
 }
 
 
@@ -341,6 +353,11 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         "-B",
         str(build_dir),
     ] + CMAKE_ARGS_BY_OS[target_platform]()
+
+    # LLVM 11 requires cmake_minimum_required(VERSION 3.4.3) which is below
+    # the 3.5 floor that newer CMake ships with (windows-11-arm runner).
+    if is_windows and is_arm and version == "11":
+        cmake_cmd.append("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
 
     run(cmake_cmd)
 
@@ -432,13 +449,15 @@ def main() -> None:
             "macos-amd64",
             "macos-arm64",
             "windows-amd64",
+            "windows-arm64",
         ],
         default=None,
         help=(
             "Target platform. Defaults to auto-detected host platform. "
             "linux-amd64=Linux x86-64, linux-arm64=Linux ARM64, "
             "macos-amd64=macOS x86-64, macos-arm64=macOS ARM64, "
-            "windows-amd64=Windows x86-64."
+            "windows-amd64=Windows x86-64, "
+            "windows-arm64=Windows ARM64."
         ),
     )
     parser.add_argument(
