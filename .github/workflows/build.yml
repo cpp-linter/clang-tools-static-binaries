@@ -43,6 +43,7 @@ jobs:
               {'platform': 'macos-amd64', 'os': 'macos', 'arch': 'amd64', 'runner': 'macos-15-intel'},
               {'platform': 'macos-arm64', 'os': 'macos', 'arch': 'arm64', 'runner': 'macos-latest'},
               {'platform': 'windows-amd64', 'os': 'windows', 'arch': 'amd64', 'runner': 'windows-latest'},
+              {'platform': 'windows-arm64', 'os': 'windows', 'arch': 'arm64', 'runner': 'windows-11-arm'},
           ]
           include = [{'clang-version': v, 'release': r} for v, r in releases.items()]
           include.extend(platforms)
@@ -101,6 +102,9 @@ jobs:
           - os: windows
             arch: amd64
             runner: windows-latest
+          - os: windows
+            arch: arm64
+            runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     needs: build
     env:
