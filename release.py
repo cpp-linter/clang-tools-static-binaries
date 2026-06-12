@@ -57,6 +57,7 @@ def generate_release_notes(output_dir: str = ".") -> Path:
     for ver, src in sorted(
         build.RELEASES.items(),
         key=lambda x: int(x[0].split(".")[0]),
+        reverse=True,
     ):
         lines.append(f"| {ver} | `{src}` |")
 
