@@ -185,16 +185,17 @@ jobs:
         env:
           TAG: "${{ steps.get-date.outputs.date }}-${{ steps.get-sha.outputs.short_sha }}"
         run: |
-          # Get the previous release tag for the Full Changelog link
-          args=(--tag "$TAG")
+          python3 release.py --tag "$TAG"
+
+          # Append Full Changelog link if a previous release exists
           prev_tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty')
           if [[ -n "$prev_tag" ]]; then
             echo "Previous release tag: $prev_tag"
-            args+=(--previous-tag "$prev_tag")
+            echo "" >> release-notes.md
+            echo "**Full Changelog**: https://github.com/cpp-linter/clang-tools-static-binaries/compare/${prev_tag}...${TAG}" >> release-notes.md
           else
             echo "No previous release found."
           fi
-          python3 release.py "${args[@]}"
       - name: List files
         run: ls -laR .
       - name: Workaround - delete all files over 2G, above github release file upload limit

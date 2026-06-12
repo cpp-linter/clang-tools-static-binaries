@@ -41,19 +41,11 @@ def generate_versions_json(tag: str, output_dir: str = ".") -> Path:
     return out_path
 
 
-def generate_release_notes(
-    output_dir: str = ".",
-    tag: str | None = None,
-    previous_tag: str | None = None,
-    repo: str = "cpp-linter/clang-tools-static-binaries",
-) -> Path:
+def generate_release_notes(output_dir: str = ".") -> Path:
     """Write ``release-notes.md`` to *output_dir* and return its path.
 
     The notes include a Markdown table of every LLVM version and its
     corresponding source tarball, plus the list of supported platforms.
-
-    If both *tag* and *previous_tag* are provided, a **Full Changelog**
-    link comparing the previous tag to the current tag is appended.
     """
     lines = [
         "## LLVM Versions in this release",
@@ -74,13 +66,6 @@ def generate_release_notes(
         "",
         "Linux x86-64 / Linux ARM64 / macOS x86-64 / macOS ARM64 / Windows x86-64 / Windows ARM64",
     ]
-
-    if tag and previous_tag:
-        lines += [
-            "",
-            f"**Full Changelog**:"
-            f" https://github.com/{repo}/compare/{previous_tag}...{tag}",
-        ]
 
     out_path = Path(output_dir) / "release-notes.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -106,22 +91,10 @@ def main() -> None:
         metavar="DIR",
         help="Directory to write output files (default: current directory).",
     )
-    parser.add_argument(
-        "--previous-tag",
-        default=None,
-        metavar="PREV_TAG",
-        help="Previous release tag for the Full Changelog link.",
-    )
-    parser.add_argument(
-        "--repo",
-        default="cpp-linter/clang-tools-static-binaries",
-        metavar="OWNER/REPO",
-        help="GitHub repository (default: cpp-linter/clang-tools-static-binaries).",
-    )
     args = parser.parse_args()
 
     generate_versions_json(args.tag, args.output_dir)
-    generate_release_notes(args.output_dir, args.tag, args.previous_tag, repo=args.repo)
+    generate_release_notes(args.output_dir)
 
 
 if __name__ == "__main__":
