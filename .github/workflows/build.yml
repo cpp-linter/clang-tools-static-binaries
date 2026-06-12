@@ -184,6 +184,7 @@ jobs:
       - name: Generate versions.json and release notes
         env:
           TAG: "${{ steps.get-date.outputs.date }}-${{ steps.get-sha.outputs.short_sha }}"
+          REPO: "${{ github.repository }}"
         run: |
           python3 release.py --tag "$TAG"
 
@@ -192,7 +193,7 @@ jobs:
           if [[ -n "$prev_tag" ]]; then
             echo "Previous release tag: $prev_tag"
             echo "" >> release-notes.md
-            echo "**Full Changelog**: https://github.com/cpp-linter/clang-tools-static-binaries/compare/${prev_tag}...${TAG}" >> release-notes.md
+            echo "**Full Changelog**: https://github.com/${REPO}/compare/${prev_tag}...${TAG}" >> release-notes.md
           else
             echo "No previous release found."
           fi
