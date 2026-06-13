@@ -183,6 +183,7 @@ jobs:
         uses: actions/download-artifact@v8
       - name: Generate versions.json and release notes
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: "${{ steps.get-date.outputs.date }}-${{ steps.get-sha.outputs.short_sha }}"
           REPO: "${{ github.repository }}"
         run: |
