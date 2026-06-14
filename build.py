@@ -355,8 +355,8 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     ] + CMAKE_ARGS_BY_OS[target_platform]()
 
     # LLVM 11 requires cmake_minimum_required(VERSION 3.4.3) which is below
-    # the 3.5 floor that newer CMake ships with (windows-11-arm runner).
-    if is_windows and is_arm and version == "11":
+    # the 3.5 floor that newer CMake ships with (Windows runners).
+    if is_windows and version == "11":
         cmake_cmd.append("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
 
     run(cmake_cmd)
