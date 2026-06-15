@@ -79,7 +79,7 @@ jobs:
           retention-days: 3
 
   # ═══════════════════════════════════════════════════════════════════════
-  # Phase 2 — macOS (starts after Linux finishes, ~136 min avg per build)
+  # Phase 2 — macOS (parallel with Windows after Linux, ~136 min avg)
   # ═══════════════════════════════════════════════════════════════════════
   build-macos:
     needs: [select-versions, build-linux]
@@ -121,10 +121,10 @@ jobs:
           retention-days: 3
 
   # ═══════════════════════════════════════════════════════════════════════
-  # Phase 3 — Windows (starts after macOS finishes, ~99 min avg per build)
+  # Phase 2 — Windows (parallel with macOS after Linux, ~99 min avg)
   # ═══════════════════════════════════════════════════════════════════════
   build-windows:
-    needs: [select-versions, build-macos]
+    needs: [select-versions, build-linux]
     if: (!cancelled())
     permissions: {}
     strategy:
@@ -189,7 +189,7 @@ jobs:
             arch: arm64
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
-    needs: build-windows
+    needs: [build-macos, build-windows]
     env:
       suffix: '_${{ matrix.os }}-${{ matrix.arch }}'
     steps:
@@ -241,7 +241,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-22.04
-    needs: build-windows
+    needs: [build-macos, build-windows]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
