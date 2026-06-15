@@ -49,7 +49,30 @@ def _load_releases() -> dict[str, str]:
 
 RELEASES: dict[str, str] = _load_releases()
 
-TOOLS = ["clang-format", "clang-query", "clang-tidy", "clang-apply-replacements"]
+TOOLS = [
+    "clang-format",
+    "clang-query",
+    "clang-tidy",
+    "clang-apply-replacements",
+    "clang-include-cleaner",  # available starting LLVM 18
+]
+
+# Minimum LLVM major version that includes clang-include-cleaner as a standalone binary.
+INCLUDE_CLEANER_MIN_VERSION = 18
+
+
+def active_tools(version: str) -> list[str]:
+    """Return the list of tools that are buildable for *version*.
+
+    clang-include-cleaner was introduced as a standalone tool in LLVM 18.
+    Earlier versions only had it as a library, not a build target.
+    """
+    tools = list(TOOLS)
+    major = int(version.split(".")[0])
+    if major < INCLUDE_CLEANER_MIN_VERSION:
+        tools.remove("clang-include-cleaner")
+    return tools
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -364,6 +387,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # ------------------------------------------------------------------
     # 5. Build
     # ------------------------------------------------------------------
+    tools = active_tools(version)
     build_cmd = (
         [
             "cmake",
@@ -371,13 +395,8 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
             str(build_dir),
         ]
         + build_args_by_os(is_windows)
-        + [
-            "--target",
-            "clang-format",
-            "clang-query",
-            "clang-tidy",
-            "clang-apply-replacements",
-        ]
+        + ["--target"]
+        + tools
     )
     run(build_cmd)
 
@@ -391,7 +410,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # 6. Smoke test
     # ------------------------------------------------------------------
     bins = bin_dir(release, is_windows)
-    for tool in TOOLS:
+    for tool in tools:
         exe = bins / f"{tool}{dot_exe}"
         print(f"\nSmoke-testing {exe} ...")
         run([str(exe), "--version"])
@@ -399,7 +418,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # ------------------------------------------------------------------
     # 7. Rename binaries
     # ------------------------------------------------------------------
-    for tool in TOOLS:
+    for tool in tools:
         src = bins / f"{tool}{dot_exe}"
         dst = bins / f"{tool}-{suffix}{dot_exe}"
         print(f"Renaming {src.name} -> {dst.name}")
@@ -408,7 +427,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # ------------------------------------------------------------------
     # 8. Generate sha512sums
     # ------------------------------------------------------------------
-    for tool in TOOLS:
+    for tool in tools:
         binary = bins / f"{tool}-{suffix}{dot_exe}"
         digest = sha512_file(binary)
         sha_file = bins / f"{tool}-{suffix}{dot_exe}.sha512sum"
