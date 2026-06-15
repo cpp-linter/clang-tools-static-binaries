@@ -22,181 +22,178 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  generate-matrix:
+  # ── Determine which LLVM versions to build ────────────────────────────
+  # Outputs a JSON array, e.g. ["17","18","19","20","21","22"]
+  # On push to master: if only releases.json changed, outputs only the
+  # newly added versions. Otherwise outputs all versions.
+  # ──────────────────────────────────────────────────────────────────────
+  select-versions:
     permissions:
       contents: read
     runs-on: ubuntu-latest
     outputs:
-      linux-matrix: ${{ steps.set-matrix.outputs.linux-matrix }}
-      macos-matrix: ${{ steps.set-matrix.outputs.macos-matrix }}
-      windows-matrix: ${{ steps.set-matrix.outputs.windows-matrix }}
+      versions: ${{ steps.set.outputs.versions }}
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # needed for git diff to detect changed versions
-      - name: Generate build matrices
-        id: set-matrix
+          fetch-depth: 0
+      - name: Determine versions to build
+        id: set
         run: |
-          python3 << 'PYEOF'
+          VERSIONS=$(python3 << 'PYEOF'
           import json, os, subprocess, re
 
-          with open('releases.json') as f:
+          with open("releases.json") as f:
               releases = json.load(f)
 
-          all_versions = sorted(releases.keys(), key=int)
-          versions_to_build = all_versions
+          versions = sorted(releases.keys(), key=int)
 
-          # ── Selective building ──────────────────────────────────────────
-          # On push to master: if ONLY releases.json changed, build only the
-          # newly added versions.  Otherwise (build.py, build.yml, release.py
-          # changed, or a PR / manual dispatch) build everything.
-          event_name = os.environ.get('GITHUB_EVENT_NAME', 'push')
-          if event_name == 'push':
-              try:
-                  result = subprocess.run(
-                      ['git', 'diff', '--name-only', 'HEAD~1', 'HEAD'],
-                      capture_output=True, text=True
-                  )
-                  if result.returncode == 0:
-                      changed = [f.strip() for f in result.stdout.split('\n') if f.strip()]
-                      non_releases = [f for f in changed if f != 'releases.json']
+          if os.environ.get("GITHUB_EVENT_NAME") == "push":
+              r = subprocess.run(
+                  ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
+                  capture_output=True, text=True,
+              )
+              if r.returncode == 0:
+                  changed = [f.strip() for f in r.stdout.split("\n") if f.strip()]
+                  if changed == ["releases.json"]:
+                      r2 = subprocess.run(
+                          ["git", "diff", "HEAD~1", "HEAD", "--", "releases.json"],
+                          capture_output=True, text=True,
+                      )
+                      added = re.findall(r'^\+\s*"(\d+)":', r2.stdout, re.MULTILINE)
+                      if added:
+                          versions = sorted(set(added), key=int)
+                          print(f"[selective] Only new versions: {versions}")
 
-                      if not non_releases and 'releases.json' in changed:
-                          # Only releases.json changed → find newly added versions
-                          diff = subprocess.run(
-                              ['git', 'diff', 'HEAD~1', 'HEAD', '--', 'releases.json'],
-                              capture_output=True, text=True
-                          )
-                          added = []
-                          for line in diff.stdout.split('\n'):
-                              if line.startswith('+') and not line.startswith('+++'):
-                                  m = re.match(r'\s*"(\d+)":', line[1:])
-                                  if m:
-                                      added.append(m.group(1))
-                          if added:
-                              versions_to_build = sorted(set(added), key=int)
-                              print(f'[selective] Only new versions: {versions_to_build}')
-              except Exception as e:
-                  print(f'[warn] Could not detect changes ({e}), building all versions')
-
-          # ── Platform definitions ────────────────────────────────────────
-          linux_platforms = [
-              {'platform': 'linux-amd64',     'os': 'linux',   'arch': 'amd64', 'runner': 'ubuntu-22.04'},
-              {'platform': 'linux-arm64',     'os': 'linux',   'arch': 'arm64', 'runner': 'ubuntu-22.04-arm'},
-          ]
-          macos_platforms = [
-              {'platform': 'macos-amd64',     'os': 'macos',   'arch': 'amd64', 'runner': 'macos-15-intel'},
-              {'platform': 'macos-arm64',     'os': 'macos',   'arch': 'arm64', 'runner': 'macos-latest'},
-          ]
-          windows_platforms = [
-              {'platform': 'windows-amd64',   'os': 'windows', 'arch': 'amd64', 'runner': 'windows-latest'},
-              {'platform': 'windows-arm64',   'os': 'windows', 'arch': 'arm64', 'runner': 'windows-11-arm'},
-          ]
-
-          version_include = [{'clang-version': v, 'release': releases[v]} for v in versions_to_build]
-
-          def make_matrix(platforms):
-              include = list(version_include)
-              include.extend(platforms)
-              return {
-                  'clang-version': versions_to_build,
-                  'platform': [p['platform'] for p in platforms],
-                  'include': include,
-              }
-
-          # ── Write outputs ───────────────────────────────────────────────
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              for name, matrix in [
-                  ('linux-matrix',   make_matrix(linux_platforms)),
-                  ('macos-matrix',   make_matrix(macos_platforms)),
-                  ('windows-matrix', make_matrix(windows_platforms)),
-              ]:
-                  out.write(f'{name}={json.dumps(matrix)}\n')
-          print(f'Matrices generated: {len(versions_to_build)} versions × 3 OS groups')
+          print(json.dumps(versions))
           PYEOF
+          )
+          echo "versions=$VERSIONS" >> "$GITHUB_OUTPUT"
 
   # ═══════════════════════════════════════════════════════════════════════
-  # Phase 1: Linux builds  (fastest — average ~73 min)
+  # Phase 1 — Linux (fastest, ~73 min avg per build)
   # ═══════════════════════════════════════════════════════════════════════
   build-linux:
-    needs: generate-matrix
+    needs: select-versions
     permissions: {}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.linux-matrix) }}
+      matrix:
+        clang-version: ${{ fromJson(needs.select-versions.outputs.versions) }}
+        platform: [linux-amd64, linux-arm64]
+        include:
+          - platform: linux-amd64
+            runner: ubuntu-22.04
+            os: linux
+            arch: amd64
+          - platform: linux-arm64
+            runner: ubuntu-22.04-arm
+            os: linux
+            arch: arm64
     runs-on: ${{ matrix.runner }}
     env:
-      RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-${{ matrix.arch }}'
     steps:
-    - name: Download build script and patches
-      shell: bash
-      run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
-    - name: Build
-      shell: bash
-      run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v7
-      with:
-        name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
-        path: "${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*"
-        retention-days: 3
+      - name: Download build script and patches
+        shell: bash
+        run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
+      - name: Resolve release tarball name
+        id: release
+        shell: bash
+        run: echo "name=$(jq -r '.["'${{ matrix.clang-version }}'"]' releases.json)" >> "$GITHUB_OUTPUT"
+      - name: Build
+        shell: bash
+        run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: clang-tools-${{ steps.release.outputs.name }}-${{ env.suffix }}
+          path: "${{ steps.release.outputs.name }}/build/**/clang-*-${{ env.suffix }}*"
+          retention-days: 3
 
   # ═══════════════════════════════════════════════════════════════════════
-  # Phase 2: macOS builds  (starts after Linux finishes, ~136 min avg)
+  # Phase 2 — macOS (starts after Linux finishes, ~136 min avg per build)
   # ═══════════════════════════════════════════════════════════════════════
   build-macos:
-    needs: build-linux
+    needs: [select-versions, build-linux]
     if: (!cancelled())
     permissions: {}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.macos-matrix) }}
+      matrix:
+        clang-version: ${{ fromJson(needs.select-versions.outputs.versions) }}
+        platform: [macos-amd64, macos-arm64]
+        include:
+          - platform: macos-amd64
+            runner: macos-15-intel
+            os: macos
+            arch: amd64
+          - platform: macos-arm64
+            runner: macos-latest
+            os: macos
+            arch: arm64
     runs-on: ${{ matrix.runner }}
     env:
-      RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-${{ matrix.arch }}'
     steps:
-    - name: Download build script and patches
-      shell: bash
-      run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
-    - name: Build
-      shell: bash
-      run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v7
-      with:
-        name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
-        path: "${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*"
-        retention-days: 3
+      - name: Download build script and patches
+        shell: bash
+        run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
+      - name: Resolve release tarball name
+        id: release
+        shell: bash
+        run: echo "name=$(jq -r '.["'${{ matrix.clang-version }}'"]' releases.json)" >> "$GITHUB_OUTPUT"
+      - name: Build
+        shell: bash
+        run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: clang-tools-${{ steps.release.outputs.name }}-${{ env.suffix }}
+          path: "${{ steps.release.outputs.name }}/build/**/clang-*-${{ env.suffix }}*"
+          retention-days: 3
 
   # ═══════════════════════════════════════════════════════════════════════
-  # Phase 3: Windows builds (starts after macOS finishes, ~99 min avg)
+  # Phase 3 — Windows (starts after macOS finishes, ~99 min avg per build)
   # ═══════════════════════════════════════════════════════════════════════
   build-windows:
-    needs: build-macos
+    needs: [select-versions, build-macos]
     if: (!cancelled())
     permissions: {}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.windows-matrix) }}
+      matrix:
+        clang-version: ${{ fromJson(needs.select-versions.outputs.versions) }}
+        platform: [windows-amd64, windows-arm64]
+        include:
+          - platform: windows-amd64
+            runner: windows-latest
+            os: windows
+            arch: amd64
+          - platform: windows-arm64
+            runner: windows-11-arm
+            os: windows
+            arch: arm64
     runs-on: ${{ matrix.runner }}
     env:
-      RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-${{ matrix.arch }}'
     steps:
-    - name: Download build script and patches
-      shell: bash
-      run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
-    - name: Build
-      shell: bash
-      run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v7
-      with:
-        name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
-        path: "${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*"
-        retention-days: 3
+      - name: Download build script and patches
+        shell: bash
+        run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
+      - name: Resolve release tarball name
+        id: release
+        shell: bash
+        run: echo "name=$(jq -r '.["'${{ matrix.clang-version }}'"]' releases.json)" >> "$GITHUB_OUTPUT"
+      - name: Build
+        shell: bash
+        run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: clang-tools-${{ steps.release.outputs.name }}-${{ env.suffix }}
+          path: "${{ steps.release.outputs.name }}/build/**/clang-*-${{ env.suffix }}*"
+          retention-days: 3
 
   # ═══════════════════════════════════════════════════════════════════════
   # Smoke test each platform with native runners
@@ -296,15 +293,10 @@ jobs:
           REPO: "${{ github.repository }}"
         run: |
           python3 release.py --tag "$TAG"
-
-          # Append Full Changelog link if a previous release exists
           prev_tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty')
           if [[ -n "$prev_tag" ]]; then
-            echo "Previous release tag: $prev_tag"
             echo "" >> release-notes.md
             echo "**Full Changelog**: https://github.com/${REPO}/compare/${prev_tag}...${TAG}" >> release-notes.md
-          else
-            echo "No previous release found."
           fi
       - name: List files
         run: ls -laR .
@@ -317,40 +309,32 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Create draft release with auto-generated notes (ignore error if already exists)
           gh release create "$TAG" \
-            --draft \
-            --prerelease \
+            --draft --prerelease \
             --title "$TAG" \
             --notes-file release-notes.md \
             2>/dev/null || true
 
-          # Upload a single file with retry + exponential backoff
           upload_with_retry() {
             local file="$1"
             local max_retries=5
             local delay=10
-
             for i in $(seq 1 $max_retries); do
               if gh release upload "$TAG" "$file" 2>&1; then
                 echo "::notice::Uploaded: $file"
                 return 0
               fi
-
               if [[ $i -ge $max_retries ]]; then
                 echo "::error::Failed to upload $file after $max_retries attempts"
                 return 1
               fi
-
-              echo "::warning::Upload failed for $file (attempt $i/$max_retries). Retrying in ${delay}s..."
+              echo "::warning::Upload failed for $file (attempt $i/$max_retries), retrying in ${delay}s..."
               sleep "$delay"
               delay=$((delay * 2))
             done
           }
 
-          # Collect all files and upload one-by-one
           mapfile -t files < <(find clang-* -type f)
-
           if [[ ${#files[@]} -eq 0 ]]; then
             echo "::warning::No files found to upload"
             exit 0
@@ -358,7 +342,6 @@ jobs:
 
           echo "Found ${#files[@]} files to upload"
           failed=0
-          # Upload versions.json first
           upload_with_retry "versions.json" || failed=1
           for file in "${files[@]}"; do
             upload_with_retry "$file" || failed=1
@@ -368,5 +351,4 @@ jobs:
             echo "::error::Some uploads failed. Check the logs above."
             exit 1
           fi
-
           echo "::notice::All ${#files[@]} files uploaded successfully."
