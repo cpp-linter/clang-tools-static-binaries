@@ -27,49 +27,109 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     outputs:
-      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
+      linux-matrix: ${{ steps.set-matrix.outputs.linux-matrix }}
+      macos-matrix: ${{ steps.set-matrix.outputs.macos-matrix }}
+      windows-matrix: ${{ steps.set-matrix.outputs.windows-matrix }}
     steps:
       - uses: actions/checkout@v6
-      - name: Generate build matrix from releases.json
+        with:
+          fetch-depth: 0  # needed for git diff to detect changed versions
+      - name: Generate build matrices
         id: set-matrix
         run: |
-          MATRIX=$(python3 << 'PYEOF'
-          import json
+          python3 << 'PYEOF'
+          import json, os, subprocess, re
+
           with open('releases.json') as f:
               releases = json.load(f)
-          platforms = [
-              {'platform': 'linux-amd64', 'os': 'linux', 'arch': 'amd64', 'runner': 'ubuntu-22.04'},
-              {'platform': 'linux-arm64', 'os': 'linux', 'arch': 'arm64', 'runner': 'ubuntu-22.04-arm'},
-              {'platform': 'macos-amd64', 'os': 'macos', 'arch': 'amd64', 'runner': 'macos-15-intel'},
-              {'platform': 'macos-arm64', 'os': 'macos', 'arch': 'arm64', 'runner': 'macos-latest'},
-              {'platform': 'windows-amd64', 'os': 'windows', 'arch': 'amd64', 'runner': 'windows-latest'},
-              {'platform': 'windows-arm64', 'os': 'windows', 'arch': 'arm64', 'runner': 'windows-11-arm'},
+
+          all_versions = sorted(releases.keys(), key=int)
+          versions_to_build = all_versions
+
+          # ── Selective building ──────────────────────────────────────────
+          # On push to master: if ONLY releases.json changed, build only the
+          # newly added versions.  Otherwise (build.py, build.yml, release.py
+          # changed, or a PR / manual dispatch) build everything.
+          event_name = os.environ.get('GITHUB_EVENT_NAME', 'push')
+          if event_name == 'push':
+              try:
+                  result = subprocess.run(
+                      ['git', 'diff', '--name-only', 'HEAD~1', 'HEAD'],
+                      capture_output=True, text=True
+                  )
+                  if result.returncode == 0:
+                      changed = [f.strip() for f in result.stdout.split('\n') if f.strip()]
+                      non_releases = [f for f in changed if f != 'releases.json']
+
+                      if not non_releases and 'releases.json' in changed:
+                          # Only releases.json changed → find newly added versions
+                          diff = subprocess.run(
+                              ['git', 'diff', 'HEAD~1', 'HEAD', '--', 'releases.json'],
+                              capture_output=True, text=True
+                          )
+                          added = []
+                          for line in diff.stdout.split('\n'):
+                              if line.startswith('+') and not line.startswith('+++'):
+                                  m = re.match(r'\s*"(\d+)":', line[1:])
+                                  if m:
+                                      added.append(m.group(1))
+                          if added:
+                              versions_to_build = sorted(set(added), key=int)
+                              print(f'[selective] Only new versions: {versions_to_build}')
+              except Exception as e:
+                  print(f'[warn] Could not detect changes ({e}), building all versions')
+
+          # ── Platform definitions ────────────────────────────────────────
+          linux_platforms = [
+              {'platform': 'linux-amd64',     'os': 'linux',   'arch': 'amd64', 'runner': 'ubuntu-22.04'},
+              {'platform': 'linux-arm64',     'os': 'linux',   'arch': 'arm64', 'runner': 'ubuntu-22.04-arm'},
           ]
-          include = [{'clang-version': v, 'release': r} for v, r in releases.items()]
-          include.extend(platforms)
-          matrix = {
-              'clang-version': sorted(releases.keys(), key=int),
-              'platform': [p['platform'] for p in platforms],
-              'include': include,
-          }
-          print(json.dumps(matrix))
+          macos_platforms = [
+              {'platform': 'macos-amd64',     'os': 'macos',   'arch': 'amd64', 'runner': 'macos-15-intel'},
+              {'platform': 'macos-arm64',     'os': 'macos',   'arch': 'arm64', 'runner': 'macos-latest'},
+          ]
+          windows_platforms = [
+              {'platform': 'windows-amd64',   'os': 'windows', 'arch': 'amd64', 'runner': 'windows-latest'},
+              {'platform': 'windows-arm64',   'os': 'windows', 'arch': 'arm64', 'runner': 'windows-11-arm'},
+          ]
+
+          version_include = [{'clang-version': v, 'release': releases[v]} for v in versions_to_build]
+
+          def make_matrix(platforms):
+              include = list(version_include)
+              include.extend(platforms)
+              return {
+                  'clang-version': versions_to_build,
+                  'platform': [p['platform'] for p in platforms],
+                  'include': include,
+              }
+
+          # ── Write outputs ───────────────────────────────────────────────
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              for name, matrix in [
+                  ('linux-matrix',   make_matrix(linux_platforms)),
+                  ('macos-matrix',   make_matrix(macos_platforms)),
+                  ('windows-matrix', make_matrix(windows_platforms)),
+              ]:
+                  out.write(f'{name}={json.dumps(matrix)}\n')
+          print(f'Matrices generated: {len(versions_to_build)} versions × 3 OS groups')
           PYEOF
-          )
-          printf 'build-matrix=%s\n' "$MATRIX" >> "$GITHUB_OUTPUT"
-  build:
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 1: Linux builds  (fastest — average ~73 min)
+  # ═══════════════════════════════════════════════════════════════════════
+  build-linux:
     needs: generate-matrix
     permissions: {}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.build-matrix) }}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.linux-matrix) }}
     runs-on: ${{ matrix.runner }}
     env:
       RELEASE: '${{ matrix.release }}'
       suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-${{ matrix.arch }}'
     steps:
     - name: Download build script and patches
-      # We download a tarball of this repo, as the presence of a .git directory leaks
-      # The commit hash of this repository into the clang binaries
       shell: bash
       run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
     - name: Build
@@ -80,8 +140,67 @@ jobs:
       with:
         name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
         path: "${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*"
-        # ** covers both bin/ (Linux/macOS) and MinSizeRel/bin/ (Windows)
         retention-days: 3
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 2: macOS builds  (starts after Linux finishes, ~136 min avg)
+  # ═══════════════════════════════════════════════════════════════════════
+  build-macos:
+    needs: build-linux
+    if: (!cancelled())
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.macos-matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      RELEASE: '${{ matrix.release }}'
+      suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-${{ matrix.arch }}'
+    steps:
+    - name: Download build script and patches
+      shell: bash
+      run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
+    - name: Build
+      shell: bash
+      run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
+        path: "${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*"
+        retention-days: 3
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 3: Windows builds (starts after macOS finishes, ~99 min avg)
+  # ═══════════════════════════════════════════════════════════════════════
+  build-windows:
+    needs: build-macos
+    if: (!cancelled())
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.windows-matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      RELEASE: '${{ matrix.release }}'
+      suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-${{ matrix.arch }}'
+    steps:
+    - name: Download build script and patches
+      shell: bash
+      run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
+    - name: Build
+      shell: bash
+      run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
+        path: "${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*"
+        retention-days: 3
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Smoke test each platform with native runners
+  # ═══════════════════════════════════════════════════════════════════════
   test-release:
     permissions: {}
     strategy:
@@ -106,7 +225,7 @@ jobs:
             arch: arm64
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
-    needs: build
+    needs: build-windows
     env:
       suffix: '_${{ matrix.os }}-${{ matrix.arch }}'
     steps:
@@ -122,17 +241,11 @@ jobs:
         if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
         run: |
           cd artifacts
-          # From the artifacts directory, loop over each executable
-          # (not .sha512sum files) and
-          # invoke the --version command to verify
-
           for tool in $(find . -type f); do
-            # Skip the sha512sum files
             if [[ $tool == *.sha512sum ]]; then
               continue
             fi
             chmod +x $tool
-            # Run the tool with --version and print the output
             echo "Running $tool --version"
             $tool --version
           done
@@ -140,36 +253,31 @@ jobs:
         if: ${{ matrix.os == 'windows' }}
         run: |
           Get-ChildItem -Recurse artifacts | Format-List
-
       - name: Smoke test each clang tool (Windows)
         if: ${{ matrix.os == 'windows' }}
         shell: pwsh
         run: |
           Set-Location artifacts
-
-          # Find all files excluding *.sha512sum
           $tools = Get-ChildItem -Recurse -File | Where-Object { $_.Name -notlike '*.sha512sum' }
-
           foreach ($tool in $tools) {
-              # Ensure the file is executable
               $toolPath = $tool.FullName
-
-              # Print which tool is being run
               Write-Host "Running $toolPath --version"
-
               try {
-                  # Attempt to run the tool with --version
                   & $toolPath --version
               } catch {
                   Write-Host "Failed to run $toolPath --version. Error: $_"
               }
           }
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Create draft GitHub Release with all artifacts
+  # ═══════════════════════════════════════════════════════════════════════
   draft-release:
     if: github.event_name != 'pull_request'
     permissions:
       contents: write
     runs-on: ubuntu-22.04
-    needs: build
+    needs: build-windows
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -240,7 +348,7 @@ jobs:
             done
           }
 
-          # Collect all files and upload one-by-one with a small delay
+          # Collect all files and upload one-by-one
           mapfile -t files < <(find clang-* -type f)
 
           if [[ ${#files[@]} -eq 0 ]]; then
@@ -250,11 +358,10 @@ jobs:
 
           echo "Found ${#files[@]} files to upload"
           failed=0
-          # Upload versions.json
+          # Upload versions.json first
           upload_with_retry "versions.json" || failed=1
           for file in "${files[@]}"; do
             upload_with_retry "$file" || failed=1
-            sleep 1
           done
 
           if [[ $failed -ne 0 ]]; then
