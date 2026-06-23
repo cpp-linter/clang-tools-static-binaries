@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing! This project builds and distributes static binaries of clang tools (clang-format, clang-tidy, clang-query, clang-apply-replacements, clang-include-cleaner) for multiple platforms.
+Thanks for your interest in contributing! This project builds and distributes static binaries of clang/LLVM tools (clang-format, clang-tidy, clang-query, clang-apply-replacements, clang-include-cleaner, llvm-cov, llvm-profdata, llvm-symbolizer, clang-scan-deps) for multiple platforms.
 
 ## Quick Start
 
@@ -29,7 +29,7 @@ The script mirrors exactly what CI does: download LLVM source → configure with
 
 The CI matrix, `build.py`, and `release.py` all read from this file. To add a new clang version, add an entry in descending order (newest first) and open a PR — CI will build all platforms automatically.
 
-Each GitHub Release also includes an **immutable** `versions.json` asset (generated from `releases.json` by `release.py`), available at `releases/latest/download/versions.json`.
+Each GitHub Release also includes an **immutable** `versions.json` asset (generated from `releases.json` and `build.py` by `release.py`), available at `releases/latest/download/versions.json`. It lists all shipped tools with minimum-version constraints and supported platforms — the **single source of truth** for all downstream channels.
 
 ## Pull Request Flow
 
