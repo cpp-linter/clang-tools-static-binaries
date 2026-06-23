@@ -79,8 +79,12 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
-        path: "${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*"
+        path: |
+          ${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*
+          ${{ matrix.release }}/build/**/llvm-*-${{ env.suffix }}*
         # ** covers both bin/ (Linux/macOS) and MinSizeRel/bin/ (Windows)
+        # clang-* matches clang-format, clang-tidy, clang-query, clang-scan-deps, etc.
+        # llvm-* matches llvm-cov, llvm-profdata, llvm-symbolizer
         retention-days: 3
   test-release:
     permissions: {}

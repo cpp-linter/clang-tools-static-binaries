@@ -55,10 +55,15 @@ TOOLS = [
     "clang-tidy",
     "clang-apply-replacements",
     "clang-include-cleaner",  # available starting LLVM 18
+    "llvm-cov",
+    "llvm-profdata",
+    "llvm-symbolizer",
+    "clang-scan-deps",
 ]
 
-# Minimum LLVM major version that includes clang-include-cleaner as a standalone binary.
+# Minimum LLVM major version for tools that were introduced after LLVM 11.
 INCLUDE_CLEANER_MIN_VERSION = 18
+CLANG_SCAN_DEPS_MIN_VERSION = 12
 
 
 def active_tools(version: str) -> list[str]:
@@ -66,12 +71,281 @@ def active_tools(version: str) -> list[str]:
 
     clang-include-cleaner was introduced as a standalone tool in LLVM 18.
     Earlier versions only had it as a library, not a build target.
+
+    clang-scan-deps became available as a standalone tool in LLVM 12.
+    Earlier versions (11) only had it as an experimental library.
     """
     tools = list(TOOLS)
     major = int(version.split(".")[0])
     if major < INCLUDE_CLEANER_MIN_VERSION:
         tools.remove("clang-include-cleaner")
+    if major < CLANG_SCAN_DEPS_MIN_VERSION:
+        tools.remove("clang-scan-deps")
     return tools
+
+
+# ---------------------------------------------------------------------------
+# Smoke-test helpers for the new tools
+# ---------------------------------------------------------------------------
+
+
+def _write_test_source(path: Path, source: str) -> None:
+    """Write *source* to *path*, creating parent dirs as needed."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(source, encoding="utf-8")
+
+
+def _find_system_tool(names: list[str]) -> str | None:
+    """Return the first tool from *names* found on PATH, or None."""
+    for name in names:
+        try:
+            subprocess.run([name, "--version"], capture_output=True, check=False)
+            return name
+        except FileNotFoundError:
+            continue
+    return None
+
+
+def smoke_llvm_profdata(
+    bins: Path, dot_exe: str, tmpdir: Path, clang_exe: Path,
+) -> None:
+    """Smoke-test llvm-profdata: compile with coverage, run, merge, show."""
+    profdata_exe = bins / f"llvm-profdata{dot_exe}"
+    print(f"Smoke-testing {profdata_exe} ...")
+    run([str(profdata_exe), "--version"])
+
+    # Write a tiny C program
+    src = tmpdir / "profraw_test.c"
+    _write_test_source(
+        src,
+        "int foo(int x) { return x * x; }\n"
+        "int main(void) { return foo(42); }\n",
+    )
+
+    test_bin = tmpdir / ("profraw_test" + dot_exe)
+    profraw = tmpdir / "test.profraw"
+    profdata = tmpdir / "test.profdata"
+
+    # Compile with instrumentation
+    run([
+        str(clang_exe),
+        "-fprofile-instr-generate",
+        "-fcoverage-mapping",
+        "-o", str(test_bin),
+        str(src),
+    ])
+
+    # Run to produce a .profraw
+    env = {**os.environ, "LLVM_PROFILE_FILE": str(profraw)}
+    run([str(test_bin)], env=env)
+    assert profraw.exists(), f"{profraw} was not generated"
+
+    # Merge .profraw -> .profdata
+    run([str(profdata_exe), "merge", "-o", str(profdata), str(profraw)])
+    assert profdata.exists(), f"{profdata} was not generated"
+
+    # Show the merged profile
+    run([str(profdata_exe), "show", str(profdata)])
+    print(f"  llvm-profdata smoke test PASSED")
+
+
+def smoke_llvm_cov(
+    bins: Path, dot_exe: str, tmpdir: Path, clang_exe: Path,
+) -> None:
+    """Smoke-test llvm-cov: use the .profdata from the profdata test."""
+    cov_exe = bins / f"llvm-cov{dot_exe}"
+    print(f"Smoke-testing {cov_exe} ...")
+    run([str(cov_exe), "--version"])
+
+    # Re-use the same test binary and .profdata produced by smoke_llvm_profdata
+    test_bin = tmpdir / ("profraw_test" + dot_exe)
+    profdata = tmpdir / "test.profdata"
+
+    if not test_bin.exists() or not profdata.exists():
+        # Build them now if the profdata smoke test wasn't run first
+        src = tmpdir / "profraw_test.c"
+        _write_test_source(
+            src,
+            "int foo(int x) { return x * x; }\n"
+            "int main(void) { return foo(42); }\n",
+        )
+        profraw = tmpdir / "test.profraw"
+        run([
+            str(clang_exe),
+            "-fprofile-instr-generate",
+            "-fcoverage-mapping",
+            "-o", str(test_bin),
+            str(src),
+        ])
+        env = {**os.environ, "LLVM_PROFILE_FILE": str(profraw)}
+        run([str(test_bin)], env=env)
+        profdata_exe = bins / f"llvm-profdata{dot_exe}"
+        run([str(profdata_exe), "merge", "-o", str(profdata), str(profraw)])
+
+    # llvm-cov report
+    result = subprocess.run(
+        [str(cov_exe), "report", str(test_bin), "-instr-profile", str(profdata)],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        print(f"  stderr: {result.stderr}")
+        raise RuntimeError(f"llvm-cov report failed (exit {result.returncode})")
+    # Verify the report contains our function name
+    assert "foo" in result.stdout or "foo" in result.stderr, \
+        f"Expected 'foo' in llvm-cov report, got:\n{result.stdout}"
+    print(f"  llvm-cov smoke test PASSED")
+
+
+def smoke_llvm_symbolizer(
+    bins: Path, dot_exe: str, tmpdir: Path, clang_exe: Path,
+) -> None:
+    """Smoke-test llvm-symbolizer: resolve a function address back to a symbol."""
+    sym_exe = bins / f"llvm-symbolizer{dot_exe}"
+    print(f"Smoke-testing {sym_exe} ...")
+    run([str(sym_exe), "--version"])
+
+    # Write a test C program with a clearly named function
+    src = tmpdir / "symtest.c"
+    _write_test_source(
+        src,
+        "void test_func(int x) {}\n"
+        "int main(void) { test_func(42); return 0; }\n",
+    )
+
+    test_bin = tmpdir / ("symtest" + dot_exe)
+    run([
+        str(clang_exe),
+        "-g", "-O0",
+        "-o", str(test_bin),
+        str(src),
+    ])
+
+    # Try to get the address of test_func using available tools
+    addr: str | None = None
+    nm_path = _find_system_tool(["llvm-nm", "nm"])
+    if nm_path:
+        result = subprocess.run(
+            [nm_path, "-C", str(test_bin)],
+            capture_output=True, text=True, check=False,
+        )
+        for line in result.stdout.splitlines():
+            if "test_func" in line and line.strip():
+                parts = line.split()
+                if parts and parts[0] != "":
+                    addr = parts[0]
+                    break
+
+    # If nm didn't work (e.g. Windows without dumpbin), try Windows dumpbin
+    if addr is None and platform.system() == "Windows":
+        dumpbin = _find_system_tool(["dumpbin", "DUMPBIN.EXE"])
+        if dumpbin:
+            result = subprocess.run(
+                [dumpbin, "/SYMBOLS", str(test_bin)],
+                capture_output=True, text=True, check=False,
+            )
+            for line in result.stdout.splitlines():
+                if "test_func" in line and "| " in line:
+                    # Example: "00000001 00000000 SECT3  notype ()    External     | test_func"
+                    before_pipe = line.split("|")[0].strip()
+                    parts = before_pipe.split()
+                    if parts:
+                        addr_candidate = parts[0].strip()
+                        if addr_candidate and addr_candidate != "00000000":
+                            addr = addr_candidate
+                            break
+
+    if addr:
+        # Feed address + binary to llvm-symbolizer via stdin
+        input_str = f"0x{addr}\n{test_bin}\n"
+        result = subprocess.run(
+            [str(sym_exe)],
+            input=input_str,
+            capture_output=True, text=True, check=False,
+        )
+        output = result.stdout + result.stderr
+        assert "test_func" in output, \
+            f"Expected 'test_func' in symbolizer output, got:\n{output}"
+        print(f"  Resolved 0x{addr} -> test_func")
+    else:
+        print("  [warn] No symbol table tool found; skipping address resolution test")
+
+    print(f"  llvm-symbolizer smoke test PASSED")
+
+
+def smoke_clang_scan_deps(
+    bins: Path, dot_exe: str, tmpdir: Path, version: str,
+) -> None:
+    """Smoke-test clang-scan-deps on a minimal compile_commands.json."""
+    scandeps_exe = bins / f"clang-scan-deps{dot_exe}"
+    print(f"Smoke-testing {scandeps_exe} ...")
+    run([str(scandeps_exe), "--version"])
+
+    # Create a minimal source file
+    srcdir = tmpdir / "src"
+    srcdir.mkdir(parents=True, exist_ok=True)
+    src = srcdir / "hello.c"
+    _write_test_source(src, "#include <stddef.h>\nint main(void) { return 0; }\n")
+
+    # Create compile_commands.json
+    builddir = tmpdir / "build"
+    builddir.mkdir(parents=True, exist_ok=True)
+    cc_json = tmpdir / "compile_commands.json"
+    cc_entry = {
+        "directory": str(tmpdir),
+        "arguments": [
+            "clang", "-c", str(src), "-o", str(builddir / "hello.o"),
+        ],
+        "file": str(src),
+    }
+    _write_test_source(
+        cc_json,
+        json.dumps([cc_entry], indent=2),
+    )
+
+    # Run in normal dependency-scanning mode
+    result = subprocess.run(
+        [
+            str(scandeps_exe),
+            "-compilation-database", str(cc_json),
+        ],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        print(f"  stderr: {result.stderr}")
+        raise RuntimeError(
+            f"clang-scan-deps failed (exit {result.returncode})"
+        )
+    # Expect the output to reference our source file
+    assert src.name in result.stdout or src.name in result.stderr, \
+        f"Expected '{src.name}' in scan-deps output, got:\n{result.stdout}"
+
+    # Optionally test -format=p1689 (modules format) if LLVM version is recent enough
+    major = int(version.split(".")[0])
+    if major >= 16:
+        result_p1689 = subprocess.run(
+            [
+                str(scandeps_exe),
+                "-compilation-database", str(cc_json),
+                "-format=p1689",
+            ],
+            capture_output=True, text=True, check=False,
+        )
+        if result_p1689.returncode == 0:
+            # p1689 output is JSON; verify it parses
+            try:
+                data = json.loads(result_p1689.stdout)
+                assert "revision" in data or "rules" in data or "provides" in data, \
+                    f"p1689 output missing expected keys:\n{result_p1689.stdout}"
+                print(f"  p1689 format validated")
+            except json.JSONDecodeError as exc:
+                print(f"  [warn] p1689 output not valid JSON: {exc}")
+        else:
+            print(
+                "  [warn] p1689 format not supported; "
+                "falling back to default format"
+            )
+
+    print(f"  clang-scan-deps smoke test PASSED")
 
 
 # ---------------------------------------------------------------------------
@@ -405,10 +679,30 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # 6. Smoke test
     # ------------------------------------------------------------------
     bins = bin_dir(release, is_windows)
+    clang_exe = bins / f"clang{dot_exe}"
+
+    # All tools get the basic --version smoke test
     for tool in tools:
         exe = bins / f"{tool}{dot_exe}"
         print(f"\nSmoke-testing {exe} ...")
         run([str(exe), "--version"])
+
+    # Tool-specific smoke tests that exercise real functionality
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="smoke_") as tmpdir_str:
+        smokes = Path(tmpdir_str)
+
+        if "llvm-profdata" in tools:
+            smoke_llvm_profdata(bins, dot_exe, smokes, clang_exe)
+
+        if "llvm-cov" in tools:
+            smoke_llvm_cov(bins, dot_exe, smokes, clang_exe)
+
+        if "llvm-symbolizer" in tools:
+            smoke_llvm_symbolizer(bins, dot_exe, smokes, clang_exe)
+
+        if "clang-scan-deps" in tools:
+            smoke_clang_scan_deps(bins, dot_exe, smokes, version)
 
     # ------------------------------------------------------------------
     # 7. Rename binaries

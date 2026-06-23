@@ -8,7 +8,7 @@
 [![homebrew](https://img.shields.io/badge/homebrew-tap-FBB040?logo=homebrew&logoColor=white)](https://github.com/cpp-linter/homebrew-tap)
 [![cpp-linter hub](https://img.shields.io/badge/%F0%9F%8F%A0_cpp--linter_hub-%E2%86%90_home-22863a)](https://cpp-linter.github.io/)
 
-Includes **[clang-format](https://clang.llvm.org/docs/ClangFormat.html), [clang-tidy](https://clang.llvm.org/extra/clang-tidy/), [clang-query](https://github.com/llvm/llvm-project/tree/main/clang-tools-extra/clang-query), [clang-apply-replacements](https://github.com/llvm/llvm-project/tree/main/clang-tools-extra/clang-apply-replacements) and [clang-include-cleaner](https://clang.llvm.org/extra/clang-tidy/checks/misc/include-cleaner.html)** (LLVM 18+).
+Includes **clang-format, clang-tidy, clang-query, clang-apply-replacements, clang-include-cleaner** (LLVM 18+), **llvm-cov, llvm-profdata, llvm-symbolizer and clang-scan-deps** — all the tools you need for C/C++ formatting, static analysis, coverage, symbolization and dependency scanning.
 
 ## Table of Contents
 
@@ -113,7 +113,7 @@ Or download pre-built binaries directly from the [Releases](https://github.com/c
 
 - Download clang-tools static binaries for your platform from the [Releases](https://github.com/cpp-linter/clang-tools-static-binaries/releases) tab.
 - Alternatively, use [pip](https://github.com/cpp-linter/clang-tools-pip), [asdf](https://github.com/cpp-linter/asdf-clang-tools), or [Homebrew](https://github.com/cpp-linter/homebrew-tap) (macOS) to download and manage them.
-- For programmatic access, the latest release includes a [`versions.json`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/versions.json) file that maps each clang tool version to its LLVM source release (e.g., `{"18": "llvm-project-18.1.5.src"}`). This is a stable machine-readable entry point for scripts and downstream tools.
+- For programmatic access, the latest release includes a [`versions.json`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/versions.json) file that maps each LLVM version to its source release, lists all shipped tools (with minimum-version constraints), and enumerates supported platforms. This is the **single source of truth** for all downstream channels (pip, asdf, homebrew, scoop, etc.) — do not maintain separate tool/version lists elsewhere.
 
 ## How can I trust this repository?
 

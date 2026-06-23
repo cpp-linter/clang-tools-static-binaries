@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing! This project builds and distributes static binaries of clang tools (clang-format, clang-tidy, clang-query, clang-apply-replacements, clang-include-cleaner) for multiple platforms.
+Thanks for your interest in contributing! This project builds and distributes static binaries of clang/LLVM tools (clang-format, clang-tidy, clang-query, clang-apply-replacements, clang-include-cleaner, llvm-cov, llvm-profdata, llvm-symbolizer, clang-scan-deps) for multiple platforms.
 
 ## Quick Start
 
