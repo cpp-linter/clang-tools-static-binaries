@@ -111,11 +111,15 @@ def smoke_llvm_profdata(
     dot_exe: str,
     tmpdir: Path,
     clang_exe: Path,
+    version: str,
 ) -> None:
     """Smoke-test llvm-profdata: compile with coverage, run, merge, show."""
     profdata_exe = bins / f"llvm-profdata{dot_exe}"
     print(f"Smoke-testing {profdata_exe} ...")
-    run([str(profdata_exe), "--version"])
+    # llvm-profdata only supports --version starting from LLVM 17.
+    llvm_major = int(version.split(".")[0])
+    if llvm_major >= 17:
+        run([str(profdata_exe), "--version"])
 
     # Write a tiny C program
     src = tmpdir / "profraw_test.c"
@@ -693,6 +697,17 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # 5. Build
     # ------------------------------------------------------------------
     tools = active_tools(version)
+
+    # Determine which additional cmake targets are needed by the smoke tests.
+    # The clang compiler driver itself is not a distributed tool but is
+    # required by functional smoke tests (llvm-profdata, llvm-cov,
+    # llvm-symbolizer) that compile short C programs with the just-built
+    # clang.
+    build_targets = list(tools)
+    needs_clang = bool({"llvm-profdata", "llvm-cov", "llvm-symbolizer"} & set(tools))
+    if needs_clang:
+        build_targets.append("clang")
+
     build_cmd = (
         [
             "cmake",
@@ -701,7 +716,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         ]
         + build_args_by_os(is_windows)
         + ["--target"]
-        + tools
+        + build_targets
     )
     run(build_cmd)
 
@@ -717,10 +732,31 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     bins = bin_dir(release, is_windows)
     clang_exe = bins / f"clang{dot_exe}"
 
-    # All tools get the basic --version smoke test
+    # All tools get the basic --version smoke test.
+    # Note: llvm-profdata on LLVM < 17 uses a subcommand interface and
+    # does NOT support --version. See llvm-profdata.cpp main() — LLVM 17
+    # added explicit `if (strcmp(argv[1], "--version") == 0)` handling.
+    # Older versions only recognise subcommands (merge/show/overlap) and
+    # --help. We verify the binary is executable here; the functional
+    # smoke test below validates the actual merge/show functionality.
+    llvm_major = int(version.split(".")[0])
     for tool in tools:
         exe = bins / f"{tool}{dot_exe}"
         print(f"\nSmoke-testing {exe} ...")
+        if tool == "llvm-profdata" and llvm_major < 17:
+            # Run with no args to confirm the binary loads (exits code 1
+            # with usage text = expected subcommand interface behavior).
+            result = subprocess.run(
+                [str(exe)], capture_output=True, text=True,
+            )
+            if "USAGE" not in result.stdout and "USAGE" not in result.stderr:
+                raise RuntimeError(
+                    f"{exe.name} did not produce expected usage output:\n"
+                    f"  stdout: {result.stdout.strip() or '(empty)'}\n"
+                    f"  stderr: {result.stderr.strip() or '(empty)'}"
+                )
+            print(f"  Binary OK (subcommand interface)")
+            continue
         run([str(exe), "--version"])
 
     # Tool-specific smoke tests that exercise real functionality
@@ -730,7 +766,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         smokes = Path(tmpdir_str)
 
         if "llvm-profdata" in tools:
-            smoke_llvm_profdata(bins, dot_exe, smokes, clang_exe)
+            smoke_llvm_profdata(bins, dot_exe, smokes, clang_exe, version)
 
         if "llvm-cov" in tools:
             smoke_llvm_cov(bins, dot_exe, smokes, clang_exe)
