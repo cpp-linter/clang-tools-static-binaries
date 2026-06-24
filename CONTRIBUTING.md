@@ -27,9 +27,33 @@ The script mirrors exactly what CI does: download LLVM source → configure with
 { "22": "llvm-project-22.1.0.src", ... }
 ```
 
-The CI matrix, `build.py`, and `release.py` all read from this file. To add a new clang version, add an entry in descending order (newest first) and open a PR — CI will build all platforms automatically.
+The CI matrix, `build.py`, and `release.py` all read from this file.
 
-Each GitHub Release also includes an **immutable** `versions.json` asset (generated from `releases.json` by `release.py`), available at `releases/latest/download/versions.json`.
+### Adding a new LLVM version
+
+1. Add an entry to `releases.json` in descending order (newest first).
+2. Open a PR — CI will build all platforms automatically.
+3. Always test at least one platform locally before opening the PR.
+
+### Version retirement policy
+
+To keep build times and release sizes manageable, the project maintains a
+**rolling window of the latest LLVM major versions**. When a new version is
+added, the oldest one should be retired in the same PR.
+
+**Rule of thumb:** Keep the latest 6–8 major versions. When adding version `N`,
+remove version `N-8` (or older) from `releases.json`. Check the
+[README](README.md) for the current retirement history.
+
+Retiring a version does **not** delete its binaries from previous releases.
+Historical assets remain on GitHub Releases indefinitely.
+
+### New tools and older LLVM versions
+
+Some tools (e.g., `clang-include-cleaner`) only exist as standalone build targets
+in newer LLVM releases. This is a fundamental limitation of the upstream source —
+the project does not attempt to backport tools to older LLVM versions. The
+version support matrix in the README uses ❌ to clearly mark these gaps.
 
 ## Pull Request Flow
 
@@ -38,7 +62,7 @@ Each GitHub Release also includes an **immutable** `versions.json` asset (genera
 3. Test locally with `python build.py` if your change affects the build.
 4. Open a PR against `master`.
 
-Keep PRs small and focused. If adding a new LLVM version, always test at least one platform locally before opening the PR.
+Keep PRs small and focused.
 
 ## Need Help?
 

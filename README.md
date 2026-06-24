@@ -76,13 +76,38 @@ Or download pre-built binaries directly from the [Releases](https://github.com/c
 
 > [!NOTE]
 >
-> Removed support for v7 (released in May 2019) by February 2025.
+> ### Version Support Policy
 >
-> Removed support for v8 (released in July 2019) by September 2025.
+> Each release includes a **rolling window of the latest LLVM major versions**.
+> Older versions are retired on a regular cadence to keep build times manageable
+> and maintenance sustainable.
 >
-> Removed support for v9 (released in September 2019) in March 2026.
+> **Current policy:** The `N` latest major LLVM versions are supported, where `N`
+> is determined by the project maintainers (typically 7–8 major versions). When a
+> new LLVM version is added, the oldest one is retired in the same release.
 >
-> Removed support for v10 (released in March 2020) in March 2026.
+> **Retired versions:**
+>
+> | Version | Released   | Retired   |
+> |---------|------------|-----------|
+> | v7      | May 2019   | Feb 2025  |
+> | v8      | Jul 2019   | Sep 2025  |
+> | v9      | Sep 2019   | Mar 2026  |
+> | v10     | Mar 2020   | Mar 2026  |
+> | v11     | Oct 2020   | TBD       |
+>
+> Binaries for retired versions remain available in historical releases on the
+> [Releases page](https://github.com/cpp-linter/clang-tools-static-binaries/releases).
+> Each release ships an immutable [`versions.json`](#download) that documents
+> exactly which LLVM versions are included — downstream tools (pip, asdf, Homebrew)
+> should use this file to discover available versions rather than hardcoding a list.
+>
+> If you need a retired version, you can still download it from an older release,
+> or build it locally using `python build.py --version <N>`.
+>
+> Retiring a version is a **build-time and storage decision**, not a statement
+> about the quality of that LLVM release. Old binaries remain on GitHub Releases
+> indefinitely.
 
 ## Download
 
