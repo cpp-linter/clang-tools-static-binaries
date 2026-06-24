@@ -430,27 +430,14 @@ def sha512_file(path: Path) -> str:
 
 
 def download_file(url: str, dest: Path) -> None:
-    """Download *url* to *dest* with a simple progress indicator."""
+    """Download *url* to *dest*."""
     if dest.exists():
         print(f"[skip] {dest.name} already downloaded.")
         return
     print(f"Downloading {url} ...", flush=True)
     tmp = dest.with_suffix(".tmp")
     try:
-        with urllib.request.urlopen(url) as resp, open(tmp, "wb") as fh:
-            total = int(resp.headers.get("Content-Length", 0))
-            downloaded = 0
-            block = 1 << 16
-            while True:
-                data = resp.read(block)
-                if not data:
-                    break
-                fh.write(data)
-                downloaded += len(data)
-                if total:
-                    pct = downloaded * 100 // total
-                    print(f"\r  {pct:3d}%", end="", flush=True)
-        print()
+        urllib.request.urlretrieve(url, tmp)
         tmp.rename(dest)
     except Exception:
         tmp.unlink(missing_ok=True)
