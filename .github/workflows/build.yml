@@ -41,7 +41,7 @@ jobs:
               {'platform': 'linux-amd64', 'os': 'linux', 'arch': 'amd64', 'runner': 'ubuntu-22.04'},
               {'platform': 'linux-arm64', 'os': 'linux', 'arch': 'arm64', 'runner': 'ubuntu-22.04-arm'},
               {'platform': 'macos-amd64', 'os': 'macos', 'arch': 'amd64', 'runner': 'macos-15-intel'},
-              {'platform': 'macos-arm64', 'os': 'macos', 'arch': 'arm64', 'runner': 'macos-latest'},
+              {'platform': 'macos-arm64', 'os': 'macos', 'arch': 'arm64', 'runner': 'macos-14'},
               {'platform': 'windows-amd64', 'os': 'windows', 'arch': 'amd64', 'runner': 'windows-latest'},
               {'platform': 'windows-arm64', 'os': 'windows', 'arch': 'arm64', 'runner': 'windows-11-arm'},
           ]
@@ -102,7 +102,7 @@ jobs:
             runner: macos-15-intel
           - os: macos
             arch: arm64
-            runner: macos-latest
+            runner: macos-14
           - os: windows
             arch: amd64
             runner: windows-latest
