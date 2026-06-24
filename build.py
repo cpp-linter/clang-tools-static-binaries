@@ -113,7 +113,9 @@ def _check_profile_runtime(clang_exe: Path, tmpdir: Path) -> bool:
     of compiler-rt and is not always built alongside the clang driver.
     """
     probe_src = tmpdir / "_rt_probe.c"
-    probe_bin = tmpdir / ("_rt_probe" + ("" if platform.system() != "Windows" else ".exe"))
+    probe_bin = tmpdir / (
+        "_rt_probe" + ("" if platform.system() != "Windows" else ".exe")
+    )
     _write_test_source(probe_src, "int main(void) { return 0; }\n")
     try:
         run(
@@ -156,8 +158,7 @@ def smoke_llvm_profdata(
         src = tmpdir / "profraw_test.c"
         _write_test_source(
             src,
-            "int foo(int x) { return x * x; }\n"
-            "int main(void) { return foo(42); }\n",
+            "int foo(int x) { return x * x; }\nint main(void) { return foo(42); }\n",
         )
         test_bin = tmpdir / ("profraw_test" + dot_exe)
         profraw = tmpdir / "test.profraw"
@@ -174,9 +175,7 @@ def smoke_llvm_profdata(
         env = {**os.environ, "LLVM_PROFILE_FILE": str(profraw)}
         run([str(test_bin)], env=env)
         assert profraw.exists(), f"{profraw} was not generated"
-        run(
-            [str(profdata_exe), "merge", "-o", str(profdata), str(profraw)]
-        )
+        run([str(profdata_exe), "merge", "-o", str(profdata), str(profraw)])
     else:
         # Without the profile runtime we can't compile instrumented code.
         # Create an empty .profdata to verify merge/show still parse their
@@ -194,7 +193,8 @@ def smoke_llvm_profdata(
         # verify the binary at least parsed arguments.
         result = subprocess.run(
             [str(profdata_exe), "merge", "-o", str(profdata), str(empty_profraw)],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         # We expect an error about invalid data, but not "Unknown command!".
         if result.returncode == 0:
@@ -206,7 +206,7 @@ def smoke_llvm_profdata(
             )
         else:
             # Expected: merge fails on invalid profraw data, but the binary works.
-            print(f"  merge subcommand OK (expected error on invalid data)")
+            print("  merge subcommand OK (expected error on invalid data)")
             return
 
     assert profdata.exists(), f"{profdata} was not generated"
@@ -245,8 +245,7 @@ def smoke_llvm_cov(
         src = tmpdir / "profraw_test.c"
         _write_test_source(
             src,
-            "int foo(int x) { return x * x; }\n"
-            "int main(void) { return foo(42); }\n",
+            "int foo(int x) { return x * x; }\nint main(void) { return foo(42); }\n",
         )
         run(
             [
