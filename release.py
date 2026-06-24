@@ -60,8 +60,10 @@ def generate_versions_json(tag: str, output_dir: str = ".") -> Path:
     out_path = Path(output_dir) / "versions.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    print(f"Created {out_path} ({len(build.RELEASES)} versions, "
-          f"{len(tools_info)} tools, {len(platforms)} platforms)")
+    print(
+        f"Created {out_path} ({len(build.RELEASES)} versions, "
+        f"{len(tools_info)} tools, {len(platforms)} platforms)"
+    )
     return out_path
 
 
