@@ -747,7 +747,9 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
             # Run with no args to confirm the binary loads (exits code 1
             # with usage text = expected subcommand interface behavior).
             result = subprocess.run(
-                [str(exe)], capture_output=True, text=True,
+                [str(exe)],
+                capture_output=True,
+                text=True,
             )
             if "USAGE" not in result.stdout and "USAGE" not in result.stderr:
                 raise RuntimeError(
@@ -755,7 +757,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
                     f"  stdout: {result.stdout.strip() or '(empty)'}\n"
                     f"  stderr: {result.stderr.strip() or '(empty)'}"
                 )
-            print(f"  Binary OK (subcommand interface)")
+            print("  Binary OK (subcommand interface)")
             continue
         run([str(exe), "--version"])
 
