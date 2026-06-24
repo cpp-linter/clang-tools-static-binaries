@@ -71,7 +71,7 @@ jobs:
       # We download a tarball of this repo, as the presence of a .git directory leaks
       # The commit hash of this repository into the clang binaries
       shell: bash
-      run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
+      run: curl -sL https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
     - name: Build
       shell: bash
       run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
