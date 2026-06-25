@@ -126,17 +126,35 @@ jobs:
         if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
         run: |
           cd artifacts
-          # From the artifacts directory, loop over each executable
-          # (not .sha512sum files) and
-          # invoke the --version command to verify
-
+          # Loop over each executable (skip .sha512sum files) and
+          # invoke the --version command to verify.
+          #
+          # Note: llvm-profdata on LLVM < 17 uses a subcommand interface
+          # and does NOT support --version.  Detect this case and verify
+          # the binary by running it with no args instead.
           for tool in $(find . -type f); do
-            # Skip the sha512sum files
             if [[ $tool == *.sha512sum ]]; then
               continue
             fi
             chmod +x $tool
-            # Run the tool with --version and print the output
+            toolname=$(basename "$tool")
+            # Extract LLVM major version from pattern like
+            # llvm-profdata-13_linux-amd64
+            if [[ $toolname == llvm-profdata-* ]]; then
+              ver="${toolname#llvm-profdata-}"
+              ver="${ver%%_*}"
+              if [[ $ver -lt 17 ]]; then
+                echo "Running $tool (no args, --version not supported on LLVM < 17)"
+                output=$("$tool" 2>&1 || true)
+                if ! echo "$output" | grep -qi "usage"; then
+                  echo "ERROR: $tool did not produce expected usage output"
+                  echo "$output"
+                  exit 1
+                fi
+                echo "$output"
+                continue
+              fi
+            fi
             echo "Running $tool --version"
             $tool --version
           done
@@ -155,17 +173,38 @@ jobs:
           $tools = Get-ChildItem -Recurse -File | Where-Object { $_.Name -notlike '*.sha512sum' }
 
           foreach ($tool in $tools) {
-              # Ensure the file is executable
               $toolPath = $tool.FullName
+              $toolName = $tool.Name
 
-              # Print which tool is being run
+              # llvm-profdata on LLVM < 17 doesn't support --version.
+              # Detect via version number in filename like llvm-profdata-13_linux-amd64
+              if ($toolName -match '^llvm-profdata-(\d+)_') {
+                  $ver = [int]$Matches[1]
+                  if ($ver -lt 17) {
+                      Write-Host "Running $toolPath (no args, --version not supported on LLVM < 17)"
+                      try {
+                          $output = & $toolPath 2>&1
+                          $outputText = "$output"
+                          if ($outputText -notmatch '(?i)usage') {
+                              Write-Host "ERROR: $toolName did not produce expected usage output"
+                              Write-Host $outputText
+                              exit 1
+                          }
+                          Write-Host $outputText
+                          continue
+                      } catch {
+                          Write-Host "Failed to run $toolPath. Error: $_"
+                          exit 1
+                      }
+                  }
+              }
+
               Write-Host "Running $toolPath --version"
-
               try {
-                  # Attempt to run the tool with --version
                   & $toolPath --version
               } catch {
                   Write-Host "Failed to run $toolPath --version. Error: $_"
+                  exit 1
               }
           }
   draft-release:
