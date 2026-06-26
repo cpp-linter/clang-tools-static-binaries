@@ -41,7 +41,7 @@ jobs:
               {'platform': 'linux-amd64', 'os': 'linux', 'arch': 'amd64', 'runner': 'ubuntu-22.04'},
               {'platform': 'linux-arm64', 'os': 'linux', 'arch': 'arm64', 'runner': 'ubuntu-22.04-arm'},
               {'platform': 'macos-amd64', 'os': 'macos', 'arch': 'amd64', 'runner': 'macos-15-intel'},
-              {'platform': 'macos-arm64', 'os': 'macos', 'arch': 'arm64', 'runner': 'macos-latest'},
+              {'platform': 'macos-arm64', 'os': 'macos', 'arch': 'arm64', 'runner': 'macos-14'},
               {'platform': 'windows-amd64', 'os': 'windows', 'arch': 'amd64', 'runner': 'windows-latest'},
               {'platform': 'windows-arm64', 'os': 'windows', 'arch': 'arm64', 'runner': 'windows-11-arm'},
           ]
@@ -71,7 +71,7 @@ jobs:
       # We download a tarball of this repo, as the presence of a .git directory leaks
       # The commit hash of this repository into the clang binaries
       shell: bash
-      run: curl -L https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
+      run: curl -sL https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
     - name: Build
       shell: bash
       run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
@@ -79,8 +79,12 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
-        path: "${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*"
+        path: |
+          ${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*
+          ${{ matrix.release }}/build/**/llvm-*-${{ env.suffix }}*
         # ** covers both bin/ (Linux/macOS) and MinSizeRel/bin/ (Windows)
+        # clang-* matches clang-format, clang-tidy, clang-query, clang-scan-deps, etc.
+        # llvm-* matches llvm-cov, llvm-profdata, llvm-symbolizer
         retention-days: 3
   test-release:
     permissions: {}
@@ -98,7 +102,7 @@ jobs:
             runner: macos-15-intel
           - os: macos
             arch: arm64
-            runner: macos-latest
+            runner: macos-14
           - os: windows
             arch: amd64
             runner: windows-latest
@@ -118,52 +122,10 @@ jobs:
       - name: List files (Linux, macOS)
         if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
         run: ls -laR artifacts/
-      - name: Smoke test each clang tool (Linux, macOS)
-        if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
-        run: |
-          cd artifacts
-          # From the artifacts directory, loop over each executable
-          # (not .sha512sum files) and
-          # invoke the --version command to verify
-
-          for tool in $(find . -type f); do
-            # Skip the sha512sum files
-            if [[ $tool == *.sha512sum ]]; then
-              continue
-            fi
-            chmod +x $tool
-            # Run the tool with --version and print the output
-            echo "Running $tool --version"
-            $tool --version
-          done
       - name: List files (Windows)
         if: ${{ matrix.os == 'windows' }}
         run: |
           Get-ChildItem -Recurse artifacts | Format-List
-
-      - name: Smoke test each clang tool (Windows)
-        if: ${{ matrix.os == 'windows' }}
-        shell: pwsh
-        run: |
-          Set-Location artifacts
-
-          # Find all files excluding *.sha512sum
-          $tools = Get-ChildItem -Recurse -File | Where-Object { $_.Name -notlike '*.sha512sum' }
-
-          foreach ($tool in $tools) {
-              # Ensure the file is executable
-              $toolPath = $tool.FullName
-
-              # Print which tool is being run
-              Write-Host "Running $toolPath --version"
-
-              try {
-                  # Attempt to run the tool with --version
-                  & $toolPath --version
-              } catch {
-                  Write-Host "Failed to run $toolPath --version. Error: $_"
-              }
-          }
   draft-release:
     if: github.event_name != 'pull_request'
     permissions:

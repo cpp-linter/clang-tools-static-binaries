@@ -55,10 +55,15 @@ TOOLS = [
     "clang-tidy",
     "clang-apply-replacements",
     "clang-include-cleaner",  # available starting LLVM 18
+    "llvm-cov",
+    "llvm-profdata",
+    "llvm-symbolizer",
+    "clang-scan-deps",
 ]
 
-# Minimum LLVM major version that includes clang-include-cleaner as a standalone binary.
+# Minimum LLVM major version for tools that were introduced after LLVM 11.
 INCLUDE_CLEANER_MIN_VERSION = 18
+CLANG_SCAN_DEPS_MIN_VERSION = 12
 
 
 def active_tools(version: str) -> list[str]:
@@ -66,11 +71,16 @@ def active_tools(version: str) -> list[str]:
 
     clang-include-cleaner was introduced as a standalone tool in LLVM 18.
     Earlier versions only had it as a library, not a build target.
+
+    clang-scan-deps became available as a standalone tool in LLVM 12.
+    Earlier versions (11) only had it as an experimental library.
     """
     tools = list(TOOLS)
     major = int(version.split(".")[0])
     if major < INCLUDE_CLEANER_MIN_VERSION:
         tools.remove("clang-include-cleaner")
+    if major < CLANG_SCAN_DEPS_MIN_VERSION:
+        tools.remove("clang-scan-deps")
     return tools
 
 
@@ -116,27 +126,14 @@ def sha512_file(path: Path) -> str:
 
 
 def download_file(url: str, dest: Path) -> None:
-    """Download *url* to *dest* with a simple progress indicator."""
+    """Download *url* to *dest*."""
     if dest.exists():
         print(f"[skip] {dest.name} already downloaded.")
         return
     print(f"Downloading {url} ...", flush=True)
     tmp = dest.with_suffix(".tmp")
     try:
-        with urllib.request.urlopen(url) as resp, open(tmp, "wb") as fh:
-            total = int(resp.headers.get("Content-Length", 0))
-            downloaded = 0
-            block = 1 << 16
-            while True:
-                data = resp.read(block)
-                if not data:
-                    break
-                fh.write(data)
-                downloaded += len(data)
-                if total:
-                    pct = downloaded * 100 // total
-                    print(f"\r  {pct:3d}%", end="", flush=True)
-        print()
+        urllib.request.urlretrieve(url, tmp)
         tmp.rename(dest)
     except Exception:
         tmp.unlink(missing_ok=True)
@@ -405,9 +402,32 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # 6. Smoke test
     # ------------------------------------------------------------------
     bins = bin_dir(release, is_windows)
+
+    # Basic --version smoke test for every built tool.
+    # Note: llvm-profdata on LLVM < 17 uses a subcommand interface and
+    # does NOT support --version. See llvm-profdata.cpp main() — LLVM 17
+    # added explicit `if (strcmp(argv[1], "--version") == 0)` handling.
+    # Older versions only recognise subcommands (merge/show/overlap) and
+    # --help. We verify the binary is executable by running it with no
+    # args and checking for the expected usage output.
+    llvm_major = int(version.split(".")[0])
     for tool in tools:
         exe = bins / f"{tool}{dot_exe}"
         print(f"\nSmoke-testing {exe} ...")
+        if tool == "llvm-profdata" and llvm_major < 17:
+            result = subprocess.run(
+                [str(exe)],
+                capture_output=True,
+                text=True,
+            )
+            if "USAGE" not in result.stdout and "USAGE" not in result.stderr:
+                raise RuntimeError(
+                    f"{exe.name} did not produce expected usage output:\n"
+                    f"  stdout: {result.stdout.strip() or '(empty)'}\n"
+                    f"  stderr: {result.stderr.strip() or '(empty)'}"
+                )
+            print("  Binary OK (subcommand interface)")
+            continue
         run([str(exe), "--version"])
 
     # ------------------------------------------------------------------

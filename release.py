@@ -25,19 +25,45 @@ import build  # noqa: E402
 def generate_versions_json(tag: str, output_dir: str = ".") -> Path:
     """Write ``versions.json`` to *output_dir* and return its path.
 
-    The generated JSON contains the build timestamp, release tag, and a
+    The generated JSON contains the build timestamp, release tag, a
     mapping of LLVM release names (keys) to source tarball identifiers
-    (values).
+    (values), the full list of shipped tools (with minimum LLVM version
+    constraints), and the supported platforms. This is the single source
+    of truth for all downstream channels (pip, asdf, homebrew, scoop, etc.).
     """
+    all_tools = build.TOOLS
+    tools_info: dict[str, dict] = {}
+    for tool in all_tools:
+        info: dict[str, object] = {}
+        if tool == "clang-include-cleaner":
+            info["min_llvm_version"] = build.INCLUDE_CLEANER_MIN_VERSION
+        if tool == "clang-scan-deps":
+            info["min_llvm_version"] = build.CLANG_SCAN_DEPS_MIN_VERSION
+        tools_info[tool] = info
+
+    platforms = [
+        "linux-amd64",
+        "linux-arm64",
+        "macos-amd64",
+        "macos-arm64",
+        "windows-amd64",
+        "windows-arm64",
+    ]
+
     data = {
         "built_at": datetime.now(timezone.utc).isoformat(),
         "release_tag": tag,
         "llvm_versions": build.RELEASES,
+        "tools": tools_info,
+        "platforms": platforms,
     }
     out_path = Path(output_dir) / "versions.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    print(f"Created {out_path} ({len(build.RELEASES)} versions)")
+    print(
+        f"Created {out_path} ({len(build.RELEASES)} versions, "
+        f"{len(tools_info)} tools, {len(platforms)} platforms)"
+    )
     return out_path
 
 
