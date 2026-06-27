@@ -440,14 +440,16 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         src.rename(dst)
 
     # ------------------------------------------------------------------
-    # 8. Generate sha512sums
+    # 8. Generate SHA512SUMS (single file with all checksums)
     # ------------------------------------------------------------------
-    for tool in tools:
-        binary = bins / f"{tool}-{suffix}{dot_exe}"
-        digest = sha512_file(binary)
-        sha_file = bins / f"{tool}-{suffix}{dot_exe}.sha512sum"
-        sha_file.write_text(f"{digest}  {binary.name}\n")
-        print(f"{digest}  {binary.name}")
+    sha512sums_path = bins / "SHA512SUMS"
+    with open(sha512sums_path, "w") as sha_file:
+        for tool in tools:
+            binary = bins / f"{tool}-{suffix}{dot_exe}"
+            digest = sha512_file(binary)
+            sha_file.write(f"{digest}  {binary.name}\n")
+            print(f"{digest}  {binary.name}")
+    print(f"Checksums written to {sha512sums_path.name}")
 
     print(f"\nBuild complete. Artifacts are in: {bins.resolve()}")
 
