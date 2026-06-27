@@ -118,7 +118,16 @@ Or download pre-built binaries directly from the [Releases](https://github.com/c
 ## How can I trust this repository?
 
 - Releases are **immutable** — once published, assets and metadata (`versions.json`) are never modified.
-- Verify sha512sums of binaries against output from GitHub Actions to make sure binaries are not modified
+- Verify checksums using the SHA512SUMS file included in every release:
+
+  ```bash
+  # Download a binary and its SHA512SUMS file for your platform/version
+  # Then verify:
+  sha512sum -c SHA512SUMS --ignore-missing
+  ```
+
+  Each SHA512SUMS file contains SHA-512 hashes for all binaries in that
+  platform+version group, in the standard POSIX format used by Linux distributions.
 - Fork this repository and run GitHub actions on your behalf
 - Build and test manually using `python build.py` (see above) or the steps in [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
 
@@ -168,4 +177,4 @@ Run `python build.py --help` for the full list of options.
 The script performs exactly the same steps as the CI workflow:
 downloads the LLVM source, applies any necessary patches, configures and
 builds with CMake, smoke-tests each binary, and writes the renamed
-binaries and their sha512sum files into `<release>/build/bin/`.
+binaries and a `SHA512SUMS` checksum file into `<release>/build/bin/`.
