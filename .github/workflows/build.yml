@@ -203,8 +203,18 @@ jobs:
             done
           }
 
+          # Combine all per-artifact SHA512SUMS into a single file at the workspace root.
+          # This mirrors the common open-source convention (e.g. Node.js SHASUMS256.txt)
+          # and avoids GitHub Release asset name collisions.
+          combined_sha="SHA512SUMS"
+          find clang-tools-* -name SHA512SUMS -type f -print0 | xargs -0 cat > "$combined_sha"
+          echo "Created combined $(wc -l < "$combined_sha")-entry $combined_sha"
+
+          # Remove the per-artifact SHA512SUMS files so they are not uploaded individually.
+          find clang-tools-* -name SHA512SUMS -type f -delete
+
           # Collect all files and upload one-by-one with a small delay
-          mapfile -t files < <(find clang-* -type f)
+          mapfile -t files < <(find clang-tools-* -type f)
 
           if [[ ${#files[@]} -eq 0 ]]; then
             echo "::warning::No files found to upload"
@@ -213,8 +223,9 @@ jobs:
 
           echo "Found ${#files[@]} files to upload"
           failed=0
-          # Upload versions.json
+          # Upload top-level metadata files first (no filename conflicts)
           upload_with_retry "versions.json" || failed=1
+          upload_with_retry "SHA512SUMS" || failed=1
           for file in "${files[@]}"; do
             upload_with_retry "$file" || failed=1
             sleep 1
