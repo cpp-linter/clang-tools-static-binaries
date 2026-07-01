@@ -80,8 +80,8 @@ jobs:
       with:
         name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
         path: |
-          ${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}
-          ${{ matrix.release }}/build/**/llvm-*-${{ env.suffix }}
+          ${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*
+          ${{ matrix.release }}/build/**/llvm-*-${{ env.suffix }}*
           ${{ matrix.release }}/build/**/SHA512SUMS
         # ** covers both bin/ (Linux/macOS) and MinSizeRel/bin/ (Windows)
         # clang-* matches clang-format, clang-tidy, clang-query, clang-scan-deps, etc.
