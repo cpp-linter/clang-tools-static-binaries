@@ -13,7 +13,7 @@ Includes **clang-format, clang-tidy, clang-query, clang-apply-replacements, clan
 ## Table of Contents
 
 - [Installation](#installation)
-- [Clang Tools Version Support Matrix](#clang-tools-version-support-matrix)
+- [Clang/LLVM Tools Version Support Matrix](#clangllvm-tools-version-support-matrix)
 - [Download](#download)
 - [How can I trust this repository?](#how-can-i-trust-this-repository)
 - [Motivation](#motivation)
@@ -39,9 +39,9 @@ brew install clang-format
 
 Or download pre-built binaries directly from the [Releases](https://github.com/cpp-linter/clang-tools-static-binaries/releases) page.
 
-## Clang Tools Version Support Matrix
+## Clang/LLVM Tools Version Support Matrix
 
-| Clang Tools              | OS/Version     | 22  | 21  | 20  | 19  | 18  | 17  | 16  | 15  | 14  | 13  | 12  |
+| Tools                   | OS/Version     | 22  | 21  | 20  | 19  | 18  | 17  | 16  | 15  | 14  | 13  | 12  |
 | :----------------------- | -------------- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | clang-format             | All platforms[^1] | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 | clang-tidy               | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
