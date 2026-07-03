@@ -43,17 +43,17 @@ Or download pre-built binaries directly from the [Releases](https://github.com/c
 
 | Clang Tools              | OS/Version     | 22  | 21  | 20  | 19  | 18  | 17  | 16  | 15  | 14  | 13  | 12  |
 | :----------------------- | -------------- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| clang-format             | All platforms¹ | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| clang-tidy               | All platforms¹ | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| clang-query              | All platforms¹ | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| clang-apply-replacements | All platforms¹ | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| clang-include-cleaner    | All platforms¹ | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ❌  | ❌  | ❌  | ❌  | ❌  | ❌  |
-| **llvm-cov** 🆕             | All platforms¹ | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| **llvm-profdata** 🆕         | All platforms¹ | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| **llvm-symbolizer** 🆕       | All platforms¹ | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| **clang-scan-deps** 🆕       | All platforms¹ | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| clang-format             | All platforms[^1] | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| clang-tidy               | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| clang-query              | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| clang-apply-replacements | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| clang-include-cleaner    | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ❌  | ❌  | ❌  | ❌  | ❌  | ❌  |
+| llvm-cov ✨               | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| llvm-profdata ✨           | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| llvm-symbolizer ✨         | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+| clang-scan-deps ✨         | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
 
-¹ All platforms: Linux x86-64, Linux ARM64, macOS x86_64, macOS ARM64, Windows x86-64, Windows ARM64
+[^1]: All platforms: Linux x86-64, Linux ARM64, macOS x86_64, macOS ARM64, Windows x86-64, Windows ARM64
 
 > [!NOTE]
 >
