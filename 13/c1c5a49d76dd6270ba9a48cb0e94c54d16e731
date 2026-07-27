@@ -1,0 +1,19 @@
+build.py
+  s_0ce49c5bd356e3::t_1e94ea53279c24 422
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "13c1c5a49d76dd6270ba9a48cb0e94c54d16e731",
+  "prompts": {},
+  "sessions": {
+    "s_0ce49c5bd356e3": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019fa49a-5fff-7bc9-a036-97ff4c4fb8c4",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "shenxianpeng <xianpeng.shen@gmail.com>"
+    }
+  }
+}
