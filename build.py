@@ -419,6 +419,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
                 [str(exe)],
                 capture_output=True,
                 text=True,
+                check=False,
             )
             if "USAGE" not in result.stdout and "USAGE" not in result.stderr:
                 raise RuntimeError(
