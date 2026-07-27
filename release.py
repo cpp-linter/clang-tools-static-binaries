@@ -19,7 +19,7 @@ from pathlib import Path
 
 # Allow importing build.py from the repo root (same directory as this script).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import build  # noqa: E402
+import build
 
 
 def generate_versions_json(tag: str, output_dir: str = ".") -> Path:

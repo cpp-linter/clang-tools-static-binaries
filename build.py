@@ -23,7 +23,6 @@ Usage
 """
 
 from __future__ import annotations
-from typing import Any, Literal
 
 import argparse
 import hashlib
@@ -35,6 +34,7 @@ import sys
 import tarfile
 import urllib.request
 from pathlib import Path
+from typing import Any, Literal
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +156,7 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
             skip = any(member.name.startswith(excl.rstrip("*")) for excl in excludes)
             if not skip:
                 members.append(member)
-        tf.extractall(path=".", members=members)  # noqa: S202 - we own the source
+        tf.extractall(path=".", members=members)
 
 
 def patch_cmake_implicit_link_macos() -> None:
@@ -419,6 +419,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
                 [str(exe)],
                 capture_output=True,
                 text=True,
+                check=False,
             )
             if "USAGE" not in result.stdout and "USAGE" not in result.stderr:
                 raise RuntimeError(
