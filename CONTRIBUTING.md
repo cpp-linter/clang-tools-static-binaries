@@ -24,7 +24,7 @@ The script mirrors exactly what CI does: download LLVM source → configure with
 [`releases.json`](releases.json) maps clang major versions to LLVM source tarballs:
 
 ```json
-{ "22": "llvm-project-22.1.0.src", ... }
+{ "23": "llvm-project-23.1.0.src", ... }
 ```
 
 The CI matrix, `build.py`, and `release.py` all read from this file.
