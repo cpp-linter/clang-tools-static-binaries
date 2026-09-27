@@ -16,7 +16,7 @@ Includes **clang-format, clang-tidy, clang-query, clang-apply-replacements, clan
 - [Clang/LLVM Tools Version Support Matrix](#clangllvm-tools-version-support-matrix)
 - [Download](#download)
 - [How can I trust this repository?](#how-can-i-trust-this-repository)
-- [Motivation](#motivation)
+- [Motivation behind this repo](#motivation-behind-this-repo)
 - [Building locally](#building-locally)
 
 ## Installation
@@ -33,8 +33,7 @@ asdf plugin add clang-format https://github.com/cpp-linter/asdf-clang-tools.git
 asdf install clang-format latest
 
 # Homebrew (macOS only)
-brew tap cpp-linter/tap
-brew install clang-format
+brew install cpp-linter/tap/clang-format
 ```
 
 Or download pre-built binaries directly from the [Releases](https://github.com/cpp-linter/clang-tools-static-binaries/releases) page.
@@ -110,7 +109,7 @@ Or download pre-built binaries directly from the [Releases](https://github.com/c
   Each SHA512SUMS file contains SHA-512 hashes for all binaries in that
   platform+version group, in the standard POSIX format used by Linux distributions.
 - Fork this repository and run GitHub actions on your behalf
-- Build and test manually using `python build.py` (see above) or the steps in [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
+- Build and test manually using `python build.py` (see [Building locally](#building-locally)) or the steps in [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
 
 ## Motivation behind this repo
 
