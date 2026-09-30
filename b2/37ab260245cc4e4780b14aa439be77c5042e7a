@@ -1,0 +1,23 @@
+CONTRIBUTING.md
+  s_0da9b18608c2a0::t_e6cf506d1059db 41-44,54
+README.md
+  s_0da9b18608c2a0::t_131acbbcbd997c 1,3-5,7,9,11,13,15-21,23,25,27,29,31,33-37,39-45,47,49-54,71,77-78,84-85,90,93,96,99,104-113
+SECURITY.md
+  s_0da9b18608c2a0::t_4c1578f9b2f3b1 5,7,10-12,14-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b237ab260245cc4e4780b14aa439be77c5042e7a",
+  "prompts": {},
+  "sessions": {
+    "s_0da9b18608c2a0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c1ae0c79-9ddb-4e6b-a8e1-2213cfd3c2b6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
