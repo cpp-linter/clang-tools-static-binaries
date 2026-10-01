@@ -1,0 +1,21 @@
+tests/test_build.py
+  s_66212c309e21f0::t_fbe9647bec086b 275-314
+build.py
+  s_66212c309e21f0::t_d981de38664c8b 159-165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4a2d78f58406c642e4bee37cb5c6d497bec9a84e",
+  "prompts": {},
+  "sessions": {
+    "s_66212c309e21f0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8763d161-5362-48a1-ae9b-11f7bcd83469",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
