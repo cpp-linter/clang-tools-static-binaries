@@ -38,12 +38,10 @@ The CI matrix, `build.py`, and `release.py` all read from this file.
 ### Version retirement policy
 
 To keep build times and release sizes manageable, the project maintains a
-**rolling window of the latest LLVM major versions**. When a new version is
-added, the oldest one should be retired in the same PR.
-
-**Rule of thumb:** Keep the latest 6–8 major versions. When adding version `N`,
-remove version `N-8` (or older) from `releases.json`. Check the
-[README](README.md) for the current retirement history.
+**rolling window of the latest LLVM major versions**. The window has no fixed
+size, and adding a version does not always retire the oldest one. To retire a
+version, remove it from `releases.json` and add a row for it to the retired
+versions table in the [README](README.md#supported-versions).
 
 Retiring a version does **not** delete its binaries from previous releases.
 Historical assets remain on GitHub Releases indefinitely.
@@ -53,7 +51,7 @@ Historical assets remain on GitHub Releases indefinitely.
 Some tools (e.g., `clang-include-cleaner`) only exist as standalone build targets
 in newer LLVM releases. This is a fundamental limitation of the upstream source —
 the project does not attempt to backport tools to older LLVM versions. The
-version support matrix in the README uses ❌ to clearly mark these gaps.
+README lists these gaps under Supported versions.
 
 ## Pull Request Flow
 

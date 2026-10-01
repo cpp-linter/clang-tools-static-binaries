@@ -1,115 +1,57 @@
-# clang-tools static binaries
+# clang-tools-static-binaries
 
-[![Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml/badge.svg)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml)
-![Supported platforms](https://img.shields.io/badge/platform-linux--64%20%7C%20linux--arm64%20%7C%20macos--64%20%7C%20macos--arm64%20%7C%20windows--64%20%7C%20windows--arm64-blue)
+[![release](https://img.shields.io/github/v/release/cpp-linter/clang-tools-static-binaries?label=release&labelColor=454a63&color=007ec6)](https://github.com/cpp-linter/clang-tools-static-binaries/releases)
+[![ci](https://img.shields.io/github/actions/workflow/status/cpp-linter/clang-tools-static-binaries/build.yml?branch=master&label=ci&labelColor=454a63)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml)
+[![part of cpp-linter](https://img.shields.io/badge/part%20of-cpp--linter-ffc20a?labelColor=454a63)](https://cpp-linter.github.io/)
 
-[![pip](https://img.shields.io/badge/pip-supported-006dad?logo=pypi&logoColor=white)](https://github.com/cpp-linter/clang-tools-pip)
-[![asdf](https://img.shields.io/badge/asdf--clang--tools-supported-9cf)](https://github.com/cpp-linter/asdf-clang-tools)
-[![homebrew](https://img.shields.io/badge/homebrew-tap-FBB040?logo=homebrew&logoColor=white)](https://github.com/cpp-linter/homebrew-tap)
-[![cpp-linter hub](https://img.shields.io/badge/%F0%9F%8F%A0_cpp--linter_hub-%E2%86%90_home-22863a)](https://cpp-linter.github.io/)
+Static binaries of clang-format, clang-tidy and other LLVM tools, so you can use them without building LLVM.
 
-Includes **clang-format, clang-tidy, clang-query, clang-apply-replacements, clang-include-cleaner** (LLVM 18+), **llvm-cov, llvm-profdata, llvm-symbolizer and clang-scan-deps** — all the tools you need for C/C++ formatting, static analysis, coverage, symbolization and dependency scanning.
+[Website](https://cpp-linter.github.io/) · [Get started](https://cpp-linter.github.io/getting-started/#just-the-clang-tools) · [Discussions](https://github.com/orgs/cpp-linter/discussions)
 
-## Table of Contents
+## Quick start
 
-- [Installation](#installation)
-- [Clang/LLVM Tools Version Support Matrix](#clangllvm-tools-version-support-matrix)
-- [Download](#download)
-- [How can I trust this repository?](#how-can-i-trust-this-repository)
-- [Motivation behind this repo](#motivation-behind-this-repo)
-- [Building locally](#building-locally)
-
-## Installation
-
-Install clang-tools via your preferred package manager, take clang-format as an example:
+Download a binary and the `SHA512SUMS` file from the [latest release](https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest), check the binary, and run it. For clang-format 21 on Linux x86-64:
 
 ```bash
-# pip (all platforms)
-pip install clang-tools
-clang-tools install clang-format
-
-# asdf (all platforms)
-asdf plugin add clang-format https://github.com/cpp-linter/asdf-clang-tools.git
-asdf install clang-format latest
-
-# Homebrew (macOS only)
-brew install cpp-linter/tap/clang-format
+curl -fLO https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/clang-format-21_linux-amd64
+curl -fLO https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/SHA512SUMS
+sha512sum -c SHA512SUMS --ignore-missing
+chmod +x clang-format-21_linux-amd64
+./clang-format-21_linux-amd64 --version
 ```
 
-Or download pre-built binaries directly from the [Releases](https://github.com/cpp-linter/clang-tools-static-binaries/releases) page.
+For another tool, LLVM version or platform, change the file name as described in [Supported versions](https://github.com/cpp-linter/clang-tools-static-binaries#supported-versions).
 
-## Clang/LLVM Tools Version Support Matrix
+[clang-tools](https://cpp-linter.github.io/clang-tools-pip/) (pip), the [asdf plugin](https://github.com/cpp-linter/asdf-clang-tools) and the [Homebrew tap](https://github.com/cpp-linter/homebrew-tap) (macOS, `brew install cpp-linter/tap/clang-format@21`) install these same binaries for you.
 
-| Tools                   | OS/Version     | 23  | 22  | 21  | 20  | 19  | 18  | 17  | 16  | 15  | 14  | 13  | 12  |
-| :----------------------- | -------------- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| clang-format             | All platforms[^1] | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| clang-tidy               | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| clang-query              | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| clang-apply-replacements | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| clang-include-cleaner    | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ❌  | ❌  | ❌  | ❌  | ❌  | ❌  |
-| llvm-cov ✨               | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| llvm-profdata ✨           | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| llvm-symbolizer ✨         | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
-| clang-scan-deps ✨         | All platforms     | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  | ✔️  |
+## Supported versions
 
-[^1]: All platforms: Linux x86-64, Linux ARM64, macOS x86_64, macOS ARM64, Windows x86-64, Windows ARM64
+The latest release has LLVM 12 to 23 for Linux, macOS and Windows on x86-64 and ARM64. Every version has clang-format, clang-tidy, clang-query, clang-apply-replacements, clang-scan-deps, llvm-cov, llvm-profdata and llvm-symbolizer; clang-include-cleaner is included from LLVM 18.
 
-> [!NOTE]
->
-> ### Version Support Policy
->
-> Each release includes a **rolling window of the latest LLVM major versions**.
-> Older versions are retired on a regular cadence to keep build times manageable
-> and maintenance sustainable.
->
-> **Current policy:** The `N` latest major LLVM versions are supported, where `N`
-> is determined by the project maintainers (typically 7–8 major versions). When a
-> new LLVM version is added, the oldest one is retired in the same release.
->
-> **Retired versions:**
->
-> | Version | Released   | Retired   |
-> |---------|------------|-----------|
-> | v7      | May 2019   | Feb 2025  |
-> | v8      | Jul 2019   | Sep 2025  |
-> | v9      | Sep 2019   | Mar 2026  |
-> | v10     | Mar 2020   | Mar 2026  |
-> | v11     | Oct 2020   | Jun 2026  |
->
-> Binaries for retired versions remain available in historical releases on the
-> [Releases page](https://github.com/cpp-linter/clang-tools-static-binaries/releases).
-> Each release ships an immutable [`versions.json`](#download) that documents
-> exactly which LLVM versions are included — downstream tools (pip, asdf, Homebrew)
-> should use this file to discover available versions rather than hardcoding a list.
->
-> If you need a retired version, you can still download it from an older release,
-> or build it locally using `python build.py --version <N>`.
->
-> Retiring a version is a **build-time and storage decision**, not a statement
-> about the quality of that LLVM release. Old binaries remain on GitHub Releases
-> indefinitely.
+Files are named `<tool>-<LLVM major>_<platform>`, with `.exe` on Windows, where the platform is `linux-amd64`, `linux-arm64`, `macos-amd64`, `macos-arm64`, `windows-amd64` or `windows-arm64`.
 
-## Download
+For programmatic access, the latest release includes a [`versions.json`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/versions.json) file that maps each LLVM version to its source release, lists all shipped tools (with minimum-version constraints), and enumerates supported platforms.
 
-- Download clang-tools static binaries for your platform from the [Releases](https://github.com/cpp-linter/clang-tools-static-binaries/releases) tab.
-- Alternatively, use [pip](https://github.com/cpp-linter/clang-tools-pip), [asdf](https://github.com/cpp-linter/asdf-clang-tools), or [Homebrew](https://github.com/cpp-linter/homebrew-tap) (macOS) to download and manage them.
-- For programmatic access, the latest release includes a [`versions.json`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/versions.json) file that maps each LLVM version to its source release, lists all shipped tools (with minimum-version constraints), and enumerates supported platforms. This is the **single source of truth** for all downstream channels (pip, asdf, homebrew, scoop, etc.) — do not maintain separate tool/version lists elsewhere.
+Each release includes a **rolling window of the latest LLVM major versions**. Older versions are retired from time to time to keep build times manageable and maintenance sustainable. The window has no fixed size, and adding a version does not always retire the oldest one. Retiring a version is a **build-time and storage decision**, not a statement about the quality of that LLVM release.
+
+Binaries for retired versions remain available in historical releases:
+
+| LLVM | Retired  | Last release with it                                                                                             |
+| ---- | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| 7    | Feb 2025 | [master-67c95218](https://github.com/cpp-linter/clang-tools-static-binaries/releases/tag/master-67c95218)         |
+| 8    | Aug 2025 | [master-b35c5633](https://github.com/cpp-linter/clang-tools-static-binaries/releases/tag/master-b35c5633)         |
+| 9    | Mar 2026 | [master-6e612956](https://github.com/cpp-linter/clang-tools-static-binaries/releases/tag/master-6e612956)         |
+| 10   | Mar 2026 | [master-6e612956](https://github.com/cpp-linter/clang-tools-static-binaries/releases/tag/master-6e612956)         |
+| 11   | Jun 2026 | [2026.06.15-a56c0263](https://github.com/cpp-linter/clang-tools-static-binaries/releases/tag/2026.06.15-a56c0263) |
+
+Releases before 2026.06.29 have a `.sha512sum` file next to each binary instead of `SHA512SUMS`. LLVM 7 to 10 were built only for `linux-amd64`, `macosx-amd64` and `windows-amd64`.
 
 ## How can I trust this repository?
 
-- Releases are **immutable** — once published, assets and metadata (`versions.json`) are never modified.
-- Verify checksums using the SHA512SUMS file included in every release:
-
-  ```bash
-  # Download a binary and its SHA512SUMS file for your platform/version
-  # Then verify:
-  sha512sum -c SHA512SUMS --ignore-missing
-  ```
-
-  Each SHA512SUMS file contains SHA-512 hashes for all binaries in that
-  platform+version group, in the standard POSIX format used by Linux distributions.
-- Fork this repository and run GitHub actions on your behalf
-- Build and test manually using `python build.py` (see [Building locally](#building-locally)) or the steps in [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
+- Releases since 2026.06.05 are **immutable** — once published, assets and metadata (`versions.json`) are never modified.
+- Verify checksums using the `SHA512SUMS` file in the release, as in the [Quick start](https://github.com/cpp-linter/clang-tools-static-binaries#quick-start). It holds the SHA-512 hash of every binary in that release, in the format `sha512sum -c` reads.
+- Fork this repository and run GitHub Actions on your behalf
+- Build and test manually using `python3 build.py` (see [Building locally](https://github.com/cpp-linter/clang-tools-static-binaries#building-locally)) or the steps in [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
 
 ## Motivation behind this repo
 
@@ -126,35 +68,46 @@ This repository ([cpp-linter/clang-tools-static-binaries](https://github.com/cpp
 
 ## Building locally
 
-A Python build script is provided so you can reproduce any build on your own machine without needing GitHub Actions. See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
+A Python build script is provided so you can reproduce any build on your own machine without needing GitHub Actions.
 
 **Prerequisites** (install once per platform):
 
 | Platform       | Requirements                          |
 | -------------- | ------------------------------------- |
-| Linux x86-64   | `gcc-10`, `cmake`, `make`             |
-| Linux ARM64    | `gcc-10`, `cmake`, `make`             |
+| Linux x86-64   | `gcc-10`, `g++-10`, `cmake`, `make`   |
+| Linux ARM64    | `gcc-10`, `g++-10`, `cmake`, `make`   |
 | macOS x86-64   | Homebrew, `gcc@14`, `cmake`           |
 | macOS ARM64    | Homebrew, `gcc@14`, `cmake`           |
 | Windows x86-64 | Visual Studio with C++ tools, `cmake` |
 | Windows ARM64  | Visual Studio with C++ tools, `cmake` |
 
+Every platform also needs Python 3.10 or later.
+
 **Run the script:**
 
 ```bash
 # build clang-tools version 18 for the auto-detected host OS
-python build.py --version 18
+python3 build.py --version 18
 
 # explicitly target a platform
-python build.py --version 17 --platform macos-arm64
+python3 build.py --version 17 --platform macos-arm64
 
 # write downloads and build artifacts to a custom directory
-python build.py --version 20 --platform linux-amd64 --build-dir /tmp/llvm-build
+python3 build.py --version 20 --platform linux-amd64 --build-dir /tmp/llvm-build
 ```
 
-Run `python build.py --help` for the full list of options.
+Run `python3 build.py --help` for the full list of options. It builds only the versions listed in [`releases.json`](https://github.com/cpp-linter/clang-tools-static-binaries/blob/master/releases.json).
 
 The script performs exactly the same steps as the CI workflow:
 downloads the LLVM source, applies any necessary patches, configures and
 builds with CMake, smoke-tests each binary, and writes the renamed
-binaries and a `SHA512SUMS` checksum file into `<release>/build/bin/`.
+binaries and a `SHA512SUMS` checksum file into `<release>/build/bin/`
+(`<release>/build/MinSizeRel/bin/` on Windows).
+
+## Contributing
+
+See [CONTRIBUTING.md](https://github.com/cpp-linter/clang-tools-static-binaries/blob/master/CONTRIBUTING.md) and the [issues](https://github.com/cpp-linter/clang-tools-static-binaries/issues).
+
+## License
+
+This repository is released under the [Unlicense](https://github.com/cpp-linter/clang-tools-static-binaries/blob/master/LICENSE). The binaries are built from LLVM, which is under the [Apache License v2.0 with LLVM Exceptions](https://llvm.org/LICENSE.txt).
