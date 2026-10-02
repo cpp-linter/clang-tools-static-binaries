@@ -1,0 +1,20 @@
+.github/workflows/build.yml
+  s_66212c309e21f0::t_35643b3119586e 138-140
+  s_66212c309e21f0::t_517d28f8b48b76 177-185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7f58a49b1ef4f3ab4ee91c684ccc09facd84ce81",
+  "prompts": {},
+  "sessions": {
+    "s_66212c309e21f0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8763d161-5362-48a1-ae9b-11f7bcd83469",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
