@@ -14,7 +14,7 @@ This script is called from the CI workflow (.github/workflows/build.yml) in the
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Allow importing build.py from the repo root (same directory as this script).
@@ -51,7 +51,7 @@ def generate_versions_json(tag: str, output_dir: str = ".") -> Path:
     ]
 
     data = {
-        "built_at": datetime.now(timezone.utc).isoformat(),
+        "built_at": datetime.now(UTC).isoformat(),
         "release_tag": tag,
         "llvm_versions": build.RELEASES,
         "tools": tools_info,
