@@ -30,6 +30,8 @@ jobs:
       build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Generate build matrix from releases.json
         id: set-matrix
         run: |
@@ -136,6 +138,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Get short SHA
         id: get-sha
         run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
