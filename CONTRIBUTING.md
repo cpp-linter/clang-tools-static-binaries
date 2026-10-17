@@ -27,13 +27,23 @@ The script mirrors exactly what CI does: download LLVM source → configure with
 { "23": "llvm-project-23.1.0.src", ... }
 ```
 
-The CI matrix, `build.py`, and `release.py` all read from this file.
+The CI plan (`publish.py`), `build.py`, and `release.py` all read from this file.
 
 ### Adding a new LLVM version
 
 1. Add an entry to `releases.json` in descending order (newest first).
-2. Open a PR — CI will build all platforms automatically.
+2. Open a PR. CI builds the new or changed entries on all platforms.
 3. Always test at least one platform locally before opening the PR.
+
+After the PR is merged, CI publishes each new version in its own release (for
+example `llvm-24.1.0`) and then a new combined latest release. Versions that
+already have a release are not built again. A change to `build.py` or a patch
+only rebuilds a version when you ask for it: run the **Build** workflow by hand
+with the versions to rebuild, for example `22 23`. Each rebuilt version gets a
+new revision (`llvm-22.1.8-2`). If a version fails to build, the other
+versions are still published, and the combined release keeps the previous
+release of that LLVM major until the build is fixed. On pull requests that change `build.py`, a patch
+or the workflow, CI builds the newest and the oldest version to check the change.
 
 ### Version retirement policy
 
@@ -43,8 +53,8 @@ size, and adding a version does not always retire the oldest one. To retire a
 version, remove it from `releases.json` and add a row for it to the retired
 versions table in the [README](README.md#supported-versions).
 
-Retiring a version does **not** delete its binaries from previous releases.
-Historical assets remain on GitHub Releases indefinitely.
+Retiring a version does **not** delete its binaries: its own release (for
+example `llvm-12.0.1`) and previous combined releases stay on GitHub Releases.
 
 ### New tools and older LLVM versions
 

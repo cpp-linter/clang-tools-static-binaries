@@ -6,62 +6,117 @@ on:
     paths:
       - ".github/workflows/build.yml"
       - "build.py"
+      - "publish.py"
       - "release.py"
       - "releases.json"
+      - "*.patch"
   pull_request:
     branches: [ master ]
     paths:
       - ".github/workflows/build.yml"
       - "build.py"
+      - "publish.py"
       - "release.py"
       - "releases.json"
+      - "*.patch"
   workflow_dispatch:
+    inputs:
+      rebuild:
+        description: "LLVM major versions to build again as a new revision, e.g. '22 23'"
+        required: false
+        default: ""
+      dry-run:
+        description: "Only print what would be copied and published"
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a run that may be uploading a release.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GH_REPO: ${{ github.repository }}
+  DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
 
 jobs:
-  generate-matrix:
+  plan:
+    # Each LLVM version has its own release (e.g. llvm-22.1.8) and is built only once.
+    # The plan lists versions to copy out of the latest combined release (seed)
+    # and versions that have no release yet (builds). See publish.py.
     permissions:
       contents: read
     runs-on: ubuntu-latest
     outputs:
-      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
+      seed: ${{ steps.plan.outputs.seed }}
+      builds: ${{ steps.plan.outputs.builds }}
+      build-matrix: ${{ steps.plan.outputs.build-matrix }}
+      has-seed: ${{ steps.plan.outputs.has-seed }}
+      has-builds: ${{ steps.plan.outputs.has-builds }}
+      latest: ${{ steps.plan.outputs.latest }}
     steps:
       - uses: actions/checkout@v7
-      - name: Generate build matrix from releases.json
-        id: set-matrix
+        with:
+          persist-credentials: false
+      - name: Compare with the base branch
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          MATRIX=$(python3 << 'PYEOF'
-          import json
-          with open('releases.json') as f:
-              releases = json.load(f)
-          platforms = [
-              {'platform': 'linux-amd64', 'os': 'linux', 'arch': 'amd64', 'runner': 'ubuntu-22.04'},
-              {'platform': 'linux-arm64', 'os': 'linux', 'arch': 'arm64', 'runner': 'ubuntu-22.04-arm'},
-              {'platform': 'macos-amd64', 'os': 'macos', 'arch': 'amd64', 'runner': 'macos-15-intel'},
-              {'platform': 'macos-arm64', 'os': 'macos', 'arch': 'arm64', 'runner': 'macos-14'},
-              {'platform': 'windows-amd64', 'os': 'windows', 'arch': 'amd64', 'runner': 'windows-latest'},
-              {'platform': 'windows-arm64', 'os': 'windows', 'arch': 'arm64', 'runner': 'windows-11-arm'},
-          ]
-          include = [{'clang-version': v, 'release': r} for v, r in releases.items()]
-          include.extend(platforms)
-          matrix = {
-              'clang-version': sorted(releases.keys(), key=int),
-              'platform': [p['platform'] for p in platforms],
-              'include': include,
-          }
-          print(json.dumps(matrix))
-          PYEOF
-          )
-          printf 'build-matrix=%s\n' "$MATRIX" >> "$GITHUB_OUTPUT"
+          git fetch --depth=1 origin "$BASE_REF"
+          git show FETCH_HEAD:releases.json > "$RUNNER_TEMP/base-releases.json"
+          if git diff --quiet FETCH_HEAD HEAD -- build.py '*.patch' .github/workflows/build.yml; then
+            echo "BUILD_INPUTS_CHANGED=" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_INPUTS_CHANGED=--build-inputs-changed" >> "$GITHUB_ENV"
+          fi
+      - name: Plan
+        id: plan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+          REBUILD: ${{ inputs.rebuild }}
+        run: |
+          if [[ "$EVENT" == "pull_request" ]]; then
+            python3 publish.py plan --event "$EVENT" \
+              --base-releases "$RUNNER_TEMP/base-releases.json" $BUILD_INPUTS_CHANGED
+          else
+            python3 publish.py plan --event "$EVENT" --rebuild "$REBUILD"
+          fi
+  seed:
+    # One-time move to per-version releases: copy the existing binaries of a
+    # version out of the latest combined release instead of building them again.
+    needs: plan
+    # Releases are only written from master; other branches can only dry-run.
+    if: >-
+      github.event_name != 'pull_request' && needs.plan.outputs.has-seed == 'true'
+      && (github.ref == 'refs/heads/master' || inputs.dry-run)
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJson(needs.plan.outputs.seed) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Copy LLVM ${{ matrix.version }} into ${{ matrix.tag }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ matrix.version }}
+          TAG: ${{ matrix.tag }}
+          FROM: ${{ needs.plan.outputs.latest }}
+        run: python3 publish.py seed --version "$VERSION" --tag "$TAG" --from-tag "$FROM" $DRY_RUN
   build:
-    needs: generate-matrix
+    needs: plan
+    if: needs.plan.outputs.has-builds == 'true' && !inputs.dry-run
     permissions: {}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.build-matrix) }}
+      matrix: ${{ fromJson(needs.plan.outputs.build-matrix) }}
     runs-on: ${{ matrix.runner }}
     env:
       RELEASE: '${{ matrix.release }}'
@@ -71,7 +126,7 @@ jobs:
       # We download a tarball of this repo, as the presence of a .git directory leaks
       # The commit hash of this repository into the clang binaries
       shell: bash
-      run: curl -sL https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz | tar xvz --strip 1
+      run: curl -sL https://github.com/${{ github.repository }}/archive/${{ github.sha }}.tar.gz | tar xvz --strip 1
     - name: Build
       shell: bash
       run: python3 build.py --version "${{ matrix.clang-version }}" --platform ${{ matrix.platform }}
@@ -87,153 +142,61 @@ jobs:
         # clang-* matches clang-format, clang-tidy, clang-query, clang-scan-deps, etc.
         # llvm-* matches llvm-cov, llvm-profdata, llvm-symbolizer
         retention-days: 3
-  test-release:
-    permissions: {}
+  publish-version:
+    # A version is published only when all of its platforms built.
+    # A failure in one version does not hold back the others.
+    needs: [plan, build]
+    if: >-
+      always() && github.event_name != 'pull_request' && !inputs.dry-run
+      && github.ref == 'refs/heads/master'
+      && needs.plan.outputs.has-builds == 'true'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - os: linux
-            arch: amd64
-            runner: ubuntu-22.04
-          - os: linux
-            arch: arm64
-            runner: ubuntu-22.04-arm
-          - os: macos
-            arch: amd64
-            runner: macos-15-intel
-          - os: macos
-            arch: arm64
-            runner: macos-14
-          - os: windows
-            arch: amd64
-            runner: windows-latest
-          - os: windows
-            arch: arm64
-            runner: windows-11-arm
-    runs-on: ${{ matrix.runner }}
-    needs: build
-    env:
-      suffix: '_${{ matrix.os }}-${{ matrix.arch }}'
+        include: ${{ fromJson(needs.plan.outputs.builds) }}
     steps:
-      - name: Download artifacts
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Download LLVM ${{ matrix.version }} artifacts
         uses: actions/download-artifact@v8
         with:
           path: artifacts
-          pattern: '**/*${{ env.suffix }}'
-      - name: List files (Linux, macOS)
-        if: ${{ matrix.os == 'linux' || matrix.os == 'macos' }}
-        run: ls -laR artifacts/
-      - name: List files (Windows)
-        if: ${{ matrix.os == 'windows' }}
+          pattern: 'clang-tools-*-${{ matrix.version }}_*'
+      - name: Publish ${{ matrix.tag }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ matrix.version }}
+          TAG: ${{ matrix.tag }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          Get-ChildItem -Recurse artifacts | Format-List
-  draft-release:
-    if: github.event_name != 'pull_request'
+          python3 publish.py version --version "$VERSION" --tag "$TAG" \
+            --artifacts artifacts --target "$GITHUB_SHA" --run-url "$RUN_URL"
+  combined-release:
+    # The release downstream projects use (releases/latest, versions.json):
+    # every version in releases.json, copied from the version releases.
+    # It is created last, after the version releases (asdf-clang-tools reads
+    # the newest release). If a version's new build failed, the previous
+    # release of that LLVM major is kept. Nothing is compiled here.
+    needs: [plan, seed, publish-version]
+    if: >-
+      always() && github.event_name != 'pull_request'
+      && (github.ref == 'refs/heads/master' || inputs.dry-run)
+      && needs.plan.result == 'success'
+      && needs.seed.result != 'failure' && needs.seed.result != 'cancelled'
     permissions:
       contents: write
-    runs-on: ubuntu-22.04
-    needs: build
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-      - name: Get short SHA
-        id: get-sha
-        run: echo "short_sha=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
-      - name: Get date
-        id: get-date
-        run: echo "date=$(date -u +'%Y.%m.%d')" >> $GITHUB_OUTPUT
-      - name: Download artifacts
-        uses: actions/download-artifact@v8
-      - name: Generate versions.json and release notes
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Publish the combined release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: "${{ steps.get-date.outputs.date }}-${{ steps.get-sha.outputs.short_sha }}"
-          REPO: "${{ github.repository }}"
         run: |
-          python3 release.py --tag "$TAG"
-
-          # Append Full Changelog link if a previous release exists
-          prev_tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty')
-          if [[ -n "$prev_tag" ]]; then
-            echo "Previous release tag: $prev_tag"
-            echo "" >> release-notes.md
-            echo "**Full Changelog**: https://github.com/${REPO}/compare/${prev_tag}...${TAG}" >> release-notes.md
-          else
-            echo "No previous release found."
-          fi
-      - name: List files
-        run: ls -laR .
-      - name: Workaround - delete all files over 2G, above github release file upload limit
-        run: find . -type f -size +2G -exec rm -v {} \;
-      - name: Create draft release and upload assets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: "${{ steps.get-date.outputs.date }}-${{ steps.get-sha.outputs.short_sha }}"
-        run: |
-          set -euo pipefail
-
-          # Create draft release with auto-generated notes (ignore error if already exists)
-          gh release create "$TAG" \
-            --draft \
-            --prerelease \
-            --title "$TAG" \
-            --notes-file release-notes.md \
-            2>/dev/null || true
-
-          # Upload a single file with retry + exponential backoff
-          upload_with_retry() {
-            local file="$1"
-            local max_retries=5
-            local delay=10
-
-            for i in $(seq 1 $max_retries); do
-              if gh release upload "$TAG" "$file" 2>&1; then
-                echo "::notice::Uploaded: $file"
-                return 0
-              fi
-
-              if [[ $i -ge $max_retries ]]; then
-                echo "::error::Failed to upload $file after $max_retries attempts"
-                return 1
-              fi
-
-              echo "::warning::Upload failed for $file (attempt $i/$max_retries). Retrying in ${delay}s..."
-              sleep "$delay"
-              delay=$((delay * 2))
-            done
-          }
-
-          # Combine all per-artifact SHA512SUMS into a single file at the workspace root.
-          # This mirrors the common open-source convention (e.g. Node.js SHASUMS256.txt)
-          # and avoids GitHub Release asset name collisions.
-          combined_sha="SHA512SUMS"
-          find clang-tools-* -name SHA512SUMS -type f -print0 | xargs -0 cat > "$combined_sha"
-          echo "Created combined $(wc -l < "$combined_sha")-entry $combined_sha"
-
-          # Remove the per-artifact SHA512SUMS files so they are not uploaded individually.
-          find clang-tools-* -name SHA512SUMS -type f -delete
-
-          # Collect all files and upload one-by-one with a small delay
-          mapfile -t files < <(find clang-tools-* -type f)
-
-          if [[ ${#files[@]} -eq 0 ]]; then
-            echo "::warning::No files found to upload"
-            exit 0
-          fi
-
-          echo "Found ${#files[@]} files to upload"
-          failed=0
-          # Upload top-level metadata files first (no filename conflicts)
-          upload_with_retry "versions.json" || failed=1
-          upload_with_retry "SHA512SUMS" || failed=1
-          for file in "${files[@]}"; do
-            upload_with_retry "$file" || failed=1
-            sleep 1
-          done
-
-          if [[ $failed -ne 0 ]]; then
-            echo "::error::Some uploads failed. Check the logs above."
-            exit 1
-          fi
-
-          echo "::notice::All ${#files[@]} files uploaded successfully."
+          tag="$(date -u +'%Y.%m.%d')-${GITHUB_SHA:0:8}"
+          python3 publish.py aggregate --tag "$tag" --target "$GITHUB_SHA" $DRY_RUN
