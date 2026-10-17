@@ -61,9 +61,11 @@ jobs:
       - name: Compare with the base branch
         if: github.event_name == 'pull_request'
         env:
-          BASE_REF: ${{ github.base_ref }}
+          # The base commit, not the branch name: this repository also has an
+          # old tag called "master", which a fetch by name picks up instead.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          git fetch --depth=1 origin "$BASE_REF"
+          git fetch --depth=1 origin "$BASE_SHA"
           git show FETCH_HEAD:releases.json > "$RUNNER_TEMP/base-releases.json"
           if git diff --quiet FETCH_HEAD HEAD -- build.py '*.patch' .github/workflows/build.yml; then
             echo "BUILD_INPUTS_CHANGED=" >> "$GITHUB_ENV"
