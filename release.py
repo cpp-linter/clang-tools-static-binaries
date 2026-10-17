@@ -13,6 +13,7 @@ This script is called from the CI workflow (.github/workflows/build.yml) in the
 
 import argparse
 import json
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +23,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build
 
 
-def generate_versions_json(tag: str, output_dir: str = ".") -> Path:
+def generate_versions_json(
+    tag: str,
+    output_dir: str = ".",
+    release_tags: dict[str, str] | None = None,
+    llvm_versions: dict[str, str] | None = None,
+) -> Path:
     """Write ``versions.json`` to *output_dir* and return its path.
 
     The generated JSON contains the build timestamp, release tag, a
@@ -30,7 +36,12 @@ def generate_versions_json(tag: str, output_dir: str = ".") -> Path:
     (values), the full list of shipped tools (with minimum LLVM version
     constraints), and the supported platforms. This is the single source
     of truth for all downstream channels (pip, asdf, homebrew, scoop, etc.).
+
+    *release_tags* maps each LLVM major version to the release that holds
+    only that version (for example ``"22": "llvm-22.1.8"``). *llvm_versions*
+    overrides releases.json with the sources actually shipped.
     """
+    llvm_versions = llvm_versions or build.RELEASES
     all_tools = build.TOOLS
     tools_info: dict[str, dict] = {}
     for tool in all_tools:
@@ -53,39 +64,48 @@ def generate_versions_json(tag: str, output_dir: str = ".") -> Path:
     data = {
         "built_at": datetime.now(UTC).isoformat(),
         "release_tag": tag,
-        "llvm_versions": build.RELEASES,
+        "llvm_versions": llvm_versions,
         "tools": tools_info,
         "platforms": platforms,
     }
+    if release_tags:
+        data["release_tags"] = release_tags
     out_path = Path(output_dir) / "versions.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     print(
-        f"Created {out_path} ({len(build.RELEASES)} versions, "
+        f"Created {out_path} ({len(llvm_versions)} versions, "
         f"{len(tools_info)} tools, {len(platforms)} platforms)"
     )
     return out_path
 
 
-def generate_release_notes(output_dir: str = ".") -> Path:
+def generate_release_notes(
+    output_dir: str = ".",
+    release_tags: dict[str, str] | None = None,
+    llvm_versions: dict[str, str] | None = None,
+) -> Path:
     """Write ``release-notes.md`` to *output_dir* and return its path.
 
     The notes include a Markdown table of every LLVM version and its
     corresponding source tarball, plus the list of supported platforms.
     """
+    repo = os.environ.get("GITHUB_REPOSITORY", "cpp-linter/clang-tools-static-binaries")
     lines = [
         "## LLVM Versions in this release",
         "",
-        "| Version | Source |",
-        "|---------|--------|",
+        "| Version | Source | Release |",
+        "|---------|--------|---------|",
     ]
     # Sort by major version number for readability.
     for ver, src in sorted(
-        build.RELEASES.items(),
+        (llvm_versions or build.RELEASES).items(),
         key=lambda x: int(x[0].split(".")[0]),
         reverse=True,
     ):
-        lines.append(f"| {ver} | `{src}` |")
+        tag = (release_tags or {}).get(ver)
+        link = f"[{tag}](https://github.com/{repo}/releases/tag/{tag})" if tag else "-"
+        lines.append(f"| {ver} | `{src}` | {link} |")
 
     lines += [
         "",

@@ -30,7 +30,13 @@ The latest release has LLVM 12 to 23 for Linux, macOS and Windows on x86-64 and 
 
 Files are named `<tool>-<LLVM major>_<platform>`, with `.exe` on Windows, where the platform is `linux-amd64`, `linux-arm64`, `macos-amd64`, `macos-arm64`, `windows-amd64` or `windows-arm64`.
 
-For programmatic access, the latest release includes a [`versions.json`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/versions.json) file that maps each LLVM version to its source release, lists all shipped tools (with minimum-version constraints), and enumerates supported platforms.
+For programmatic access, the latest release includes a [`versions.json`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/latest/download/versions.json) file that maps each LLVM version to its source release, lists all shipped tools (with minimum-version constraints), and enumerates supported platforms. Its `release_tags` field names the release that holds each version on its own.
+
+### One release per LLVM version
+
+Each LLVM version is built once and published in its own release, named after the LLVM source release, for example [`llvm-22.1.0`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/tag/llvm-22.1.0). That release never changes. If the same LLVM release has to be built again, the new build gets a revision suffix, such as `llvm-22.1.0-2`.
+
+The latest release (`YYYY.MM.DD-<commit>`) still has every supported version in one place, so existing download links keep working. Its files are copied from the version releases; nothing is rebuilt for it.
 
 Each release includes a **rolling window of the latest LLVM major versions**. Older versions are retired from time to time to keep build times manageable and maintenance sustainable. The window has no fixed size, and adding a version does not always retire the oldest one. Retiring a version is a **build-time and storage decision**, not a statement about the quality of that LLVM release.
 
