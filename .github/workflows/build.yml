@@ -7,7 +7,6 @@ on:
       - ".github/workflows/build.yml"
       - "build.py"
       - "publish.py"
-      - "release.py"
       - "releases.json"
       - "*.patch"
   pull_request:
@@ -16,7 +15,6 @@ on:
       - ".github/workflows/build.yml"
       - "build.py"
       - "publish.py"
-      - "release.py"
       - "releases.json"
       - "*.patch"
   workflow_dispatch:
@@ -177,12 +175,11 @@ jobs:
         run: |
           python3 publish.py version --version "$VERSION" --tag "$TAG" \
             --artifacts artifacts --target "$GITHUB_SHA" --run-url "$RUN_URL"
-  combined-release:
-    # The release downstream projects use (releases/latest, versions.json):
-    # every version in releases.json, copied from the version releases.
-    # It is created last, after the version releases (asdf-clang-tools reads
-    # the newest release). If a version's new build failed, the previous
-    # release of that LLVM major is kept. Nothing is compiled here.
+  index:
+    # index.json lists every file of every supported version (URL, size,
+    # SHA-512). Downstream tools read it instead of one release that holds
+    # everything. If a version's new build failed, the previous release of
+    # that LLVM major stays in the index.
     needs: [plan, seed, publish-version]
     if: >-
       always() && github.event_name != 'pull_request'
@@ -190,15 +187,33 @@ jobs:
       && needs.plan.result == 'success'
       && needs.seed.result != 'failure' && needs.seed.result != 'cancelled'
     permissions:
-      contents: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Publish the combined release
+      - name: Write index.json and index.html
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="$(date -u +'%Y.%m.%d')-${GITHUB_SHA:0:8}"
-          python3 publish.py aggregate --tag "$tag" --target "$GITHUB_SHA" $DRY_RUN
+          python3 publish.py index --output site
+          python3 -c "import json; d = json.load(open('site/index.json')); print(json.dumps({v: i['tag'] for v, i in d['versions'].items()}, indent=2))"
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+  deploy-index:
+    needs: index
+    if: >-
+      always() && needs.index.result == 'success'
+      && github.ref == 'refs/heads/master' && !inputs.dry-run
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
