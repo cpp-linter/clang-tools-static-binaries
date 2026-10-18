@@ -274,6 +274,9 @@ def cmake_args_windows_arm64() -> list[str]:
         "-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra",
         "-Thost=ARM64",
         "-DCMAKE_CXX_FLAGS=/MP /std:c++14",
+        # Building every LLVM backend runs the windows-11-arm runner out of
+        # memory; the tools only need the native one (as on macOS).
+        "-DLLVM_TARGETS_TO_BUILD=AArch64",
         "-DLLVM_USE_CRT_MINSIZEREL=MT",
     ]
 
