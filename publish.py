@@ -7,18 +7,19 @@ workflow runs only build versions that do not have a release yet. A rebuild
 of the same source gets a revision suffix (``llvm-22.1.8-2``), like a Debian
 package revision.
 
-The combined release that downstream projects already use (``YYYY.MM.DD-sha``,
-marked as latest) is then assembled by copying the files of every version
-release, without compiling anything.
+There is no release that holds every version. Instead, ``index.json`` (and
+a matching ``index.html``) lists every file of every supported version with
+its URL, size and SHA-512, and is published on GitHub Pages. Downstream
+tools read the index, the way uv reads its Python download metadata.
 
 Subcommands (all are called from .github/workflows/build.yml):
 
-* ``plan``      - decide which versions to copy from the latest combined
-                  release ("seed") and which to build; print a JSON plan.
-* ``seed``      - copy one version's files out of an existing combined
-                  release into a new version release.
-* ``version``   - publish one version release from the build artifacts.
-* ``aggregate`` - publish the combined release from all version releases.
+* ``plan``    - decide which versions to copy out of the last combined
+                release (SEED_FROM, once) and which to build.
+* ``seed``    - copy one version's files out of SEED_FROM into a new
+                version release.
+* ``version`` - publish one version release from the build artifacts.
+* ``index``   - write index.json and index.html from the version releases.
 
 ``gh`` (GitHub CLI) must be installed and ``GH_TOKEN``/``GH_REPO`` set for the
 subcommands that talk to GitHub.
@@ -28,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import os
 import re
@@ -36,11 +38,11 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build
-import release
 
 PLATFORMS = [
     {"platform": "linux-amd64", "runner": "ubuntu-22.04"},
@@ -57,6 +59,13 @@ PLATFORM_NAMES = [p["platform"] for p in PLATFORMS]
 BUILD_INPUTS = ["build.py", "*.patch", ".github/workflows/build.yml"]
 
 METADATA_FILES = {"SHA512SUMS", "versions.json"}
+
+DEFAULT_REPO = "cpp-linter/clang-tools-static-binaries"
+INDEX_SCHEMA_VERSION = 1
+
+# The last release that held every LLVM version in one place. Versions whose
+# source matches it are copied out of it once instead of being built again.
+SEED_FROM = "2026.09.01-5fb8802d"
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +130,7 @@ def make_plan(
     """Decide what to seed and what to build.
 
     *published* holds the tags of all published releases. *latest_sources*
-    is ``llvm_versions`` from the latest combined release's versions.json.
+    is ``llvm_versions`` from the versions.json of release SEED_FROM.
     On pull requests nothing is published, so only the versions changed
     against *base_releases* are built (plus the newest and oldest version
     when the build inputs changed).
@@ -204,21 +213,11 @@ def published_tags() -> set[str]:
     return {line for line in out.splitlines() if line}
 
 
-def latest_tag() -> str | None:
-    try:
-        out = gh("api", "repos/{owner}/{repo}/releases/latest", "--jq", ".tag_name")
-    except subprocess.CalledProcessError:
-        return None
-    return out.strip() or None
-
-
-def latest_versions_json() -> dict | None:
-    tag = latest_tag()
-    if tag is None:
-        return None
+def seed_versions_json() -> dict | None:
+    """versions.json of the last combined release, or None if it is gone."""
     with tempfile.TemporaryDirectory() as tmp:
         try:
-            gh("release", "download", tag, "-p", "versions.json", "-D", tmp)
+            gh("release", "download", SEED_FROM, "-p", "versions.json", "-D", tmp)
         except subprocess.CalledProcessError:
             return None
         return json.loads((Path(tmp) / "versions.json").read_text(encoding="utf-8"))
@@ -374,15 +373,15 @@ def cmd_plan(args: argparse.Namespace) -> None:
             build_inputs_changed=args.build_inputs_changed,
         )
     else:
-        latest = latest_versions_json() or {}
+        seed_from = seed_versions_json() or {}
         plan = make_plan(
             event=args.event,
             releases=releases,
             published=published_tags(),
-            latest_sources=latest.get("llvm_versions"),
+            latest_sources=seed_from.get("llvm_versions"),
             rebuild=rebuild,
         )
-        plan["latest"] = latest.get("release_tag")
+        plan["latest"] = SEED_FROM
 
     print(json.dumps(plan, indent=2), file=sys.stderr)
     if args.github_output:
@@ -483,9 +482,7 @@ def fallback_tag(version: str, published: set[str]) -> str | None:
     return best[1] if best else None
 
 
-def choose_tags(
-    releases: dict[str, str], published: set[str], dry_run: bool = False
-) -> dict[str, str]:
+def choose_tags(releases: dict[str, str], published: set[str]) -> dict[str, str]:
     """Pick the release to copy for each LLVM major in *releases*.
 
     When the source in releases.json has no release yet (its build failed),
@@ -496,10 +493,7 @@ def choose_tags(
     tags: dict[str, str] = {}
     for version in sort_versions(releases):
         tag = current_tag(releases[version], published)
-        if tag is None and dry_run:
-            tag = base_tag(releases[version])
-            print(f"[dry-run] LLVM {version} has no published release; assuming {tag}")
-        elif tag is None:
+        if tag is None:
             tag = fallback_tag(version, published)
             print(
                 f"::warning::LLVM {version} ({releases[version]}) has no published "
@@ -510,75 +504,128 @@ def choose_tags(
     return tags
 
 
-def cmd_aggregate(args: argparse.Namespace) -> None:
+def release_assets(tag: str) -> dict[str, dict]:
+    """Name -> {url, size} for every file of release *tag*."""
+    out = gh(
+        "api",
+        f"repos/{{owner}}/{{repo}}/releases/tags/{tag}",
+        "--jq",
+        "[.assets[] | {name, size, url: .browser_download_url}]",
+    )
+    return {a["name"]: a for a in json.loads(out)}
+
+
+def release_sums(tag: str) -> dict[str, str]:
+    with tempfile.TemporaryDirectory() as tmp:
+        gh("release", "download", tag, "-p", "SHA512SUMS", "-D", tmp)
+        return read_sums(Path(tmp) / "SHA512SUMS")
+
+
+def build_index(
+    tags: dict[str, str],
+    assets: dict[str, dict[str, dict]],
+    sums: dict[str, dict[str, str]],
+    repo: str,
+) -> dict:
+    """The index downstream tools read: every file of every supported version."""
+    versions = {}
+    for version, tag in tags.items():
+        files: dict[str, dict[str, dict]] = {}
+        for tool in build.active_tools(version):
+            for platform_name in PLATFORM_NAMES:
+                exe = ".exe" if platform_name.startswith("windows") else ""
+                name = f"{tool}-{version}_{platform_name}{exe}"
+                asset = assets[tag].get(name)
+                if asset is None or name not in sums[tag]:
+                    raise SystemExit(f"{tag} has no {name} or no checksum for it")
+                files.setdefault(tool, {})[platform_name] = {
+                    "name": name,
+                    "url": asset["url"],
+                    "size": asset["size"],
+                    "sha512": sums[tag][name],
+                }
+        source = tag_source(tag)
+        versions[version] = {
+            "version": source[len("llvm-project-") : -len(".src")],
+            "source": source,
+            "tag": tag,
+            "release_url": f"https://github.com/{repo}/releases/tag/{tag}",
+            "sha512sums_url": assets[tag]["SHA512SUMS"]["url"],
+            "tools": files,
+        }
+    tools_info: dict[str, dict] = {}
+    for tool in build.TOOLS:
+        info: dict[str, int] = {}
+        if tool == "clang-include-cleaner":
+            info["min_llvm_version"] = build.INCLUDE_CLEANER_MIN_VERSION
+        if tool == "clang-scan-deps":
+            info["min_llvm_version"] = build.CLANG_SCAN_DEPS_MIN_VERSION
+        tools_info[tool] = info
+    return {
+        "schema_version": INDEX_SCHEMA_VERSION,
+        "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
+        "repository": repo,
+        "latest": max(versions, key=int) if versions else None,
+        "platforms": PLATFORM_NAMES,
+        "tools": tools_info,
+        "versions": {v: versions[v] for v in sort_versions(versions)},
+    }
+
+
+def render_html(index: dict) -> str:
+    """A plain download page with the same content as index.json."""
+    esc = html.escape
+    rows = []
+    for major, info in index["versions"].items():
+        links = []
+        for tool, by_platform in info["tools"].items():
+            cells = " ".join(
+                f'<a href="{esc(f["url"])}">{esc(p)}</a>'
+                for p, f in by_platform.items()
+            )
+            links.append(f"<tr><td>{esc(tool)}</td><td>{cells}</td></tr>")
+        rows.append(
+            f'<h2 id="llvm-{esc(major)}">LLVM {esc(info["version"])}</h2>'
+            f'<p><a href="{esc(info["release_url"])}">{esc(info["tag"])}</a> · '
+            f'<a href="{esc(info["sha512sums_url"])}">SHA512SUMS</a></p>'
+            f"<table>{''.join(links)}</table>"
+        )
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>clang-tools static binaries</title>
+<style>
+body{{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5}}
+td{{padding:.2rem .6rem;vertical-align:top}} a{{margin-right:.5rem}}
+</style></head><body>
+<h1>clang-tools static binaries</h1>
+<p>Static builds of clang-format, clang-tidy and other LLVM tools from
+<a href="https://github.com/{esc(index["repository"])}">{esc(index["repository"])}</a>.
+Machine-readable list: <a href="index.json">index.json</a>.
+Generated {esc(index["generated_at"])}.</p>
+{"".join(rows)}
+</body></html>
+"""
+
+
+def cmd_index(args: argparse.Namespace) -> None:
+    repo = os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPO)
     published = published_tags()
-    tags = choose_tags(build.RELEASES, published, args.dry_run)
+    tags = choose_tags(build.RELEASES, published)
     if not tags:
         raise SystemExit("No version has a published release.")
-    sources = {v: tag_source(t) for v, t in tags.items()}
-
-    latest = latest_versions_json() or {}
-    if latest.get("release_tags") == tags and latest.get("llvm_versions") == sources:
-        print(
-            f"Latest release {latest.get('release_tag')} already has these versions; nothing to do."
-        )
-        return
-    if args.tag in published:
-        raise SystemExit(f"Release {args.tag} already exists.")
-
-    work = Path(tempfile.mkdtemp(prefix="aggregate-"))
-    try:
-        release.generate_versions_json(
-            args.tag, str(work), release_tags=tags, llvm_versions=sources
-        )
-        notes_path = release.generate_release_notes(
-            str(work), release_tags=tags, llvm_versions=sources
-        )
-        notes = notes_path.read_text(encoding="utf-8")
-        if latest.get("release_tag"):
-            notes += (
-                f"\n**Full Changelog**: https://github.com/{os.environ.get('GITHUB_REPOSITORY', 'cpp-linter/clang-tools-static-binaries')}"
-                f"/compare/{latest['release_tag']}...{args.tag}\n"
-            )
-        print(notes)
-        if args.dry_run:
-            for version, tag in tags.items():
-                print(f"[dry-run] would copy {tag} (LLVM {version})")
-            return
-
-        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as nf:
-            nf.write(notes)
-        gh(
-            "release",
-            "create",
-            args.tag,
-            "--draft",
-            "--title",
-            args.tag,
-            "--notes-file",
-            nf.name,
-            "--target",
-            args.target,
-            capture=False,
-        )
-        all_sums: dict[str, str] = {}
-        # Copy one version at a time so the runner never holds every binary.
-        for version, tag in tags.items():
-            vdir = work / version
-            gh("release", "download", tag, "-D", str(vdir))
-            sums = read_sums(vdir / "SHA512SUMS")
-            files = select_files(version, vdir.iterdir())
-            check_files(version, files, sums)
-            for name in sorted(files):
-                upload_with_retry(args.tag, files[name])
-                all_sums[name] = sums[name]
-            shutil.rmtree(vdir)
-        write_sums(work / "SHA512SUMS", all_sums)
-        upload_with_retry(args.tag, work / "SHA512SUMS")
-        upload_with_retry(args.tag, work / "versions.json")
-        gh("release", "edit", args.tag, "--draft=false", "--latest=true", capture=False)
-    finally:
-        shutil.rmtree(work, ignore_errors=True)
+    assets = {tag: release_assets(tag) for tag in tags.values()}
+    sums = {tag: release_sums(tag) for tag in tags.values()}
+    index = build_index(tags, assets, sums, repo)
+    out = Path(args.output)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "index.json").write_text(
+        json.dumps(index, indent=2) + "\n", encoding="utf-8"
+    )
+    (out / "index.html").write_text(render_html(index), encoding="utf-8")
+    for version, tag in tags.items():
+        print(f"LLVM {version}: {tag}")
+    print(f"Wrote {out / 'index.json'} and {out / 'index.html'}")
 
 
 def main() -> None:
@@ -595,7 +642,7 @@ def main() -> None:
     p.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT"))
     p.set_defaults(func=cmd_plan)
 
-    p = sub.add_parser("seed", help="Copy a version out of a combined release.")
+    p = sub.add_parser("seed", help="Copy a version out of SEED_FROM.")
     p.add_argument("--version", required=True)
     p.add_argument("--tag", required=True)
     p.add_argument("--from-tag", required=True)
@@ -611,11 +658,9 @@ def main() -> None:
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_version)
 
-    p = sub.add_parser("aggregate", help="Publish the combined latest release.")
-    p.add_argument("--tag", required=True)
-    p.add_argument("--target", required=True, help="Commit to tag.")
-    p.add_argument("--dry-run", action="store_true")
-    p.set_defaults(func=cmd_aggregate)
+    p = sub.add_parser("index", help="Write index.json and index.html.")
+    p.add_argument("--output", "-o", default="site")
+    p.set_defaults(func=cmd_index)
 
     args = parser.parse_args()
     args.func(args)
