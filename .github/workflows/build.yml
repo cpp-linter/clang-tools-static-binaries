@@ -175,6 +175,26 @@ jobs:
         run: |
           python3 publish.py version --version "$VERSION" --tag "$TAG" \
             --artifacts artifacts --target "$GITHUB_SHA" --run-url "$RUN_URL"
+  release-notes:
+    # Keep the notes of every version release in the layout publish.py
+    # writes today. Releases that already match are left alone.
+    needs: [plan, seed, publish-version]
+    if: >-
+      always() && github.event_name != 'pull_request'
+      && (github.ref == 'refs/heads/master' || inputs.dry-run)
+      && needs.plan.result == 'success'
+      && needs.seed.result != 'failure' && needs.seed.result != 'cancelled'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Rewrite version release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 publish.py notes $DRY_RUN
   index:
     # index.json lists every file of every supported version (URL, size,
     # SHA-512). Downstream tools read it instead of one release that holds

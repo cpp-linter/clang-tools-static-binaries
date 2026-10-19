@@ -12,7 +12,7 @@ a matching ``index.html``) lists every file of every supported version with
 its URL, size and SHA-512, and is published on GitHub Pages. Downstream
 tools read the index, the way uv reads its Python download metadata.
 
-Subcommands (all but ``notes`` are called from .github/workflows/build.yml):
+Subcommands (all are called from .github/workflows/build.yml):
 
 * ``plan``    - decide which versions to copy out of the last combined
                 release (SEED_FROM, once) and which to build.
@@ -20,8 +20,8 @@ Subcommands (all but ``notes`` are called from .github/workflows/build.yml):
                 version release.
 * ``version`` - publish one version release from the build artifacts.
 * ``index``   - write index.json and index.html from the version releases.
-* ``notes``   - rewrite the notes of published version releases in the
-                current layout (run by hand after the layout changes).
+* ``notes``   - rewrite the notes of published version releases that
+                don't match the current layout.
 
 ``gh`` (GitHub CLI) must be installed and ``GH_TOKEN``/``GH_REPO`` set for the
 subcommands that talk to GitHub.

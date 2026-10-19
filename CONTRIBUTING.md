@@ -47,12 +47,12 @@ that LLVM major until the build is fixed. On pull requests that change
 version to check the change.
 
 Every version release gets the same notes, written by `version_notes()` in
-`publish.py`. After changing that layout, rewrite the notes of the releases
-that are already published (only the notes change, not the tags or files):
+`publish.py`. Each run of the **Build** workflow on `master` also rewrites the
+notes of published version releases that don't match that layout yet (only
+the notes change, not the tags or files). To preview it locally:
 
 ```sh
 GH_REPO=cpp-linter/clang-tools-static-binaries python3 publish.py notes --dry-run
-GH_REPO=cpp-linter/clang-tools-static-binaries python3 publish.py notes
 ```
 
 ### Version retirement policy
