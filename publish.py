@@ -12,7 +12,7 @@ a matching ``index.html``) lists every file of every supported version with
 its URL, size and SHA-512, and is published on GitHub Pages. Downstream
 tools read the index, the way uv reads its Python download metadata.
 
-Subcommands (all are called from .github/workflows/build.yml):
+Subcommands (all but ``notes`` are called from .github/workflows/build.yml):
 
 * ``plan``    - decide which versions to copy out of the last combined
                 release (SEED_FROM, once) and which to build.
@@ -20,6 +20,8 @@ Subcommands (all are called from .github/workflows/build.yml):
                 version release.
 * ``version`` - publish one version release from the build artifacts.
 * ``index``   - write index.json and index.html from the version releases.
+* ``notes``   - rewrite the notes of published version releases in the
+                current layout (run by hand after the layout changes).
 
 ``gh`` (GitHub CLI) must be installed and ``GH_TOKEN``/``GH_REPO`` set for the
 subcommands that talk to GitHub.
@@ -337,21 +339,87 @@ def create_release(
     )
 
 
-def version_notes(version: str, source: str, how: str) -> str:
+PAGES_URL = "https://cpp-linter.github.io/clang-tools-static-binaries"
+
+
+def repo_name() -> str:
+    return (
+        os.environ.get("GITHUB_REPOSITORY") or os.environ.get("GH_REPO") or DEFAULT_REPO
+    )
+
+
+def built_by(run_url: str) -> str:
+    """Provenance line for a release built by a workflow run."""
+    if not run_url:
+        return "Built by the Build workflow of this repository."
+    run_id = run_url.rstrip("/").rsplit("/", 1)[-1]
+    return f"Built by workflow run [{run_id}]({run_url})."
+
+
+def copied_from(src_tag: str) -> str:
+    """Provenance line for a release seeded from the last combined release."""
+    url = f"https://github.com/{repo_name()}/releases/tag/{src_tag}"
+    return (
+        f"Copied unchanged from release [`{src_tag}`]({url}) "
+        "when the project moved to one release per LLVM version."
+    )
+
+
+def version_notes(version: str, source: str, provenance: str) -> str:
+    """Release notes of a version release. Every version release uses this
+    layout, so all of them read the same; only *provenance* differs."""
+    full = source.removeprefix("llvm-project-").removesuffix(".src")
+    tools = build.active_tools(version)
     return "\n".join(
         [
-            f"LLVM {version} binaries built from `{source}`.",
+            f"Static binaries of the clang tools from LLVM {full}, built from `{source}`.",
             "",
-            how,
+            "### Tools",
             "",
-            "Platforms: " + ", ".join(PLATFORM_NAMES),
+            " · ".join(f"`{t}`" for t in tools),
             "",
-            "Tools: " + ", ".join(build.active_tools(version)),
+            "### Platforms",
             "",
-            "Verify downloads with `sha512sum -c SHA512SUMS --ignore-missing`.",
+            " · ".join(f"`{p}`" for p in PLATFORM_NAMES),
+            "",
+            (
+                f"Files are named `<tool>-{version}_<platform>`, with `.exe` on "
+                f"Windows, for example `{tools[0]}-{version}_linux-amd64`."
+            ),
+            "",
+            "### Verify",
+            "",
+            "Download `SHA512SUMS` next to the files, then run:",
+            "",
+            "```sh",
+            "sha512sum -c SHA512SUMS --ignore-missing",
+            "```",
+            "",
+            "### Provenance",
+            "",
+            provenance,
+            "",
+            (
+                f"Every version, with URLs and checksums: "
+                f"[index.json]({PAGES_URL}/index.json) · [download page]({PAGES_URL}/)."
+            ),
             "",
         ]
     )
+
+
+def provenance_of(body: str) -> str:
+    """Recover the provenance line from the notes of a published release,
+    in the old or the current layout."""
+    match = re.search(
+        r"copied unchanged from release \[?`([^`]+)`", body, re.IGNORECASE
+    )
+    if match:
+        return copied_from(match.group(1))
+    match = re.search(r"https://github\.com/\S+/actions/runs/\d+", body)
+    if match:
+        return built_by(match.group(0).rstrip(").,"))
+    return built_by("")
 
 
 # ---------------------------------------------------------------------------
@@ -416,12 +484,7 @@ def cmd_seed(args: argparse.Namespace) -> None:
         sums = {n: all_sums[n] for n in files if n in all_sums}
         check_files(version, files, sums)
         write_sums(work / "SHA512SUMS", sums)
-        notes = version_notes(
-            version,
-            source,
-            f"These files were copied unchanged from release `{src_tag}` "
-            "when the project moved to one release per LLVM version.",
-        )
+        notes = version_notes(version, source, copied_from(src_tag))
         create_release(
             tag,
             tag,
@@ -445,9 +508,7 @@ def cmd_version(args: argparse.Namespace) -> None:
     check_files(version, files, sums)
     out = Path(tempfile.mkdtemp()) / "SHA512SUMS"
     write_sums(out, {n: sums[n] for n in files})
-    notes = version_notes(
-        version, source, f"Built by {args.run_url}" if args.run_url else ""
-    )
+    notes = version_notes(version, source, built_by(args.run_url))
     create_release(
         tag,
         tag,
@@ -608,6 +669,35 @@ Generated {esc(index["generated_at"])}.</p>
 """
 
 
+def cmd_notes(args: argparse.Namespace) -> None:
+    """Rewrite the notes of published version releases in the current layout.
+    Only the notes change; tags and files stay as they are."""
+    for tag in sorted(published_tags()):
+        if not re.fullmatch(r"llvm-\d+(?:\.\d+)*(?:-\d+)?", tag):
+            continue
+        source = tag_source(tag)
+        version = source.removeprefix("llvm-project-").split(".")[0]
+        release = json.loads(gh("api", f"repos/{{owner}}/{{repo}}/releases/tags/{tag}"))
+        body = release.get("body") or ""
+        notes = version_notes(version, source, provenance_of(body))
+        if body.strip() == notes.strip():
+            print(f"{tag}: up to date")
+            continue
+        if args.dry_run:
+            print(f"--- {tag}\n{notes}")
+            continue
+        gh(
+            "api",
+            "--method",
+            "PATCH",
+            f"repos/{{owner}}/{{repo}}/releases/{release['id']}",
+            "-f",
+            f"body={notes}",
+            "--silent",
+            capture=False,
+        )
+
+
 def cmd_index(args: argparse.Namespace) -> None:
     repo = os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPO)
     published = published_tags()
@@ -657,6 +747,10 @@ def main() -> None:
     p.add_argument("--run-url", default="")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_version)
+
+    p = sub.add_parser("notes", help="Rewrite version release notes in one layout.")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_notes)
 
     p = sub.add_parser("index", help="Write index.json and index.html.")
     p.add_argument("--output", "-o", default="site")

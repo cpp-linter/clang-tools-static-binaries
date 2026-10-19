@@ -46,6 +46,15 @@ that LLVM major until the build is fixed. On pull requests that change
 `build.py`, a patch or the workflow, CI builds the newest and the oldest
 version to check the change.
 
+Every version release gets the same notes, written by `version_notes()` in
+`publish.py`. After changing that layout, rewrite the notes of the releases
+that are already published (only the notes change, not the tags or files):
+
+```sh
+GH_REPO=cpp-linter/clang-tools-static-binaries python3 publish.py notes --dry-run
+GH_REPO=cpp-linter/clang-tools-static-binaries python3 publish.py notes
+```
+
 ### Version retirement policy
 
 To keep build times and release sizes manageable, the project maintains a
