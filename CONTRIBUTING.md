@@ -44,7 +44,8 @@ new revision (`llvm-22.1.8-2`). If a version fails to build, the other
 versions are still published, and `index.json` keeps the previous release of
 that LLVM major until the build is fixed. On pull requests that change
 `build.py`, a patch or the workflow, CI builds the newest and the oldest
-version to check the change.
+version to check the change. Changing only action versions (`uses:` lines) in
+the workflow does not trigger these builds.
 
 ### Version retirement policy
 

@@ -65,7 +65,13 @@ jobs:
         run: |
           git fetch --depth=1 origin "$BASE_SHA"
           git show FETCH_HEAD:releases.json > "$RUNNER_TEMP/base-releases.json"
-          if git diff --quiet FETCH_HEAD HEAD -- build.py '*.patch' .github/workflows/build.yml; then
+          # Changing only the action versions in this workflow (`uses:` lines,
+          # e.g. Dependabot updates) does not change how LLVM is built, so it
+          # does not trigger the test builds.
+          strip_uses() { grep -vE '^[[:space:]]*(- )?uses:' || true; }
+          if git diff --quiet FETCH_HEAD HEAD -- build.py '*.patch' \
+            && diff -q <(git show FETCH_HEAD:.github/workflows/build.yml | strip_uses) \
+                       <(strip_uses < .github/workflows/build.yml) > /dev/null; then
             echo "BUILD_INPUTS_CHANGED=" >> "$GITHUB_ENV"
           else
             echo "BUILD_INPUTS_CHANGED=--build-inputs-changed" >> "$GITHUB_ENV"
