@@ -32,7 +32,7 @@ gh attestation verify clang-format-23_linux-amd64 \
 
 The command fails unless an attestation signed by a workflow of this repository names the file's exact digest. Add `--format json` to see the full statement, including the commit and the workflow run that built the file.
 
-Releases whose notes show the `gh attestation verify` command have attestations. Releases published before attestations were added do not; use their `SHA512SUMS` instead.
+Releases whose notes show the `gh attestation verify` command have attestations. Releases published before attestations were added do not; check them with their `SHA512SUMS` file, or with the `.sha512sum` file next to each binary in releases before 2026.06.29.
 
 ## Trusting the Supply Chain
 

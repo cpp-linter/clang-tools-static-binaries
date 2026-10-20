@@ -13,6 +13,7 @@ on them.
 from __future__ import annotations
 
 import html
+import http.client
 import json
 import subprocess
 import urllib.error
@@ -34,7 +35,8 @@ def fetch_json(url: str, *, missing_ok: bool = False) -> dict | None:
         if missing_ok and e.code == 404:
             return {}
         print(f"::warning::Could not read {url}: {e}")
-    except (OSError, ValueError) as e:
+    except (OSError, ValueError, http.client.HTTPException) as e:
+        # HTTPException (e.g. IncompleteRead) is not an OSError.
         print(f"::warning::Could not read {url}: {e}")
     return None
 
