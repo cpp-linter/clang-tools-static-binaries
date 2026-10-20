@@ -20,7 +20,7 @@ chmod +x clang-format-21_linux-amd64
 ./clang-format-21_linux-amd64 --version
 ```
 
-The [download page](https://cpp-linter.github.io/clang-tools-static-binaries/) lists the current release of every version and links to each file.
+The [download page](https://cpp-linter.github.io/clang-tools-static-binaries/) lists the current release of every version and links to each file. It also shows which versions LLVM, PyPI, conda-forge and Homebrew have, with an install command for each source.
 
 [clang-tools](https://cpp-linter.github.io/clang-tools-pip/) (pip), the [asdf plugin](https://github.com/cpp-linter/asdf-clang-tools) and the [Homebrew tap](https://github.com/cpp-linter/homebrew-tap) (macOS, `brew install cpp-linter/tap/clang-format@21`) install these same binaries for you.
 

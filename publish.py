@@ -7,10 +7,11 @@ workflow runs only build versions that do not have a release yet. A rebuild
 of the same source gets a revision suffix (``llvm-22.1.8-2``), like a Debian
 package revision.
 
-There is no release that holds every version. Instead, ``index.json`` (and
-a matching ``index.html``) lists every file of every supported version with
-its URL, size and SHA-512, and is published on GitHub Pages. Downstream
-tools read the index, the way uv reads its Python download metadata.
+There is no release that holds every version. Instead, ``index.json`` lists
+every file of every supported version with its URL, size and SHA-512, and is
+published on GitHub Pages with a download page, ``index.html`` (see
+download_page.py). Downstream tools read the index, the way uv reads its
+Python download metadata.
 
 Subcommands (all are called from .github/workflows/build.yml):
 
@@ -29,7 +30,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import html
 import json
 import os
 import re
@@ -43,6 +43,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build
+import download_page
 
 PLATFORMS = [
     {"platform": "linux-amd64", "runner": "ubuntu-22.04"},
@@ -587,42 +588,6 @@ def build_index(
     }
 
 
-def render_html(index: dict) -> str:
-    """A plain download page with the same content as index.json."""
-    esc = html.escape
-    rows = []
-    for major, info in index["versions"].items():
-        links = []
-        for tool, by_platform in info["tools"].items():
-            cells = " ".join(
-                f'<a href="{esc(f["url"])}">{esc(p)}</a>'
-                for p, f in by_platform.items()
-            )
-            links.append(f"<tr><td>{esc(tool)}</td><td>{cells}</td></tr>")
-        rows.append(
-            f'<h2 id="llvm-{esc(major)}">LLVM {esc(info["version"])}</h2>'
-            f'<p><a href="{esc(info["release_url"])}">{esc(info["tag"])}</a> · '
-            f'<a href="{esc(info["sha512sums_url"])}">SHA512SUMS</a></p>'
-            f"<table>{''.join(links)}</table>"
-        )
-    return f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>clang-tools static binaries</title>
-<style>
-body{{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5}}
-td{{padding:.2rem .6rem;vertical-align:top}} a{{margin-right:.5rem}}
-</style></head><body>
-<h1>clang-tools static binaries</h1>
-<p>Static builds of clang-format, clang-tidy and other LLVM tools from
-<a href="https://github.com/{esc(index["repository"])}">{esc(index["repository"])}</a>.
-Machine-readable list: <a href="index.json">index.json</a>.
-Generated {esc(index["generated_at"])}.</p>
-{"".join(rows)}
-</body></html>
-"""
-
-
 def cmd_index(args: argparse.Namespace) -> None:
     repo = os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPO)
     published = published_tags()
@@ -637,7 +602,13 @@ def cmd_index(args: argparse.Namespace) -> None:
     (out / "index.json").write_text(
         json.dumps(index, indent=2) + "\n", encoding="utf-8"
     )
-    (out / "index.html").write_text(render_html(index), encoding="utf-8")
+    others = download_page.other_sources(list(index["versions"]))
+    for source, versions in others.items():
+        found = ", ".join(sorted(versions, key=int)) if versions else "not read"
+        print(f"{source}: {found}")
+    (out / "index.html").write_text(
+        download_page.render_html(index, others), encoding="utf-8"
+    )
     for version, tag in tags.items():
         print(f"LLVM {version}: {tag}")
     print(f"Wrote {out / 'index.json'} and {out / 'index.html'}")
