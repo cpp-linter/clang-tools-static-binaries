@@ -180,7 +180,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python3 publish.py version --version "$VERSION" --tag "$TAG" \
-            --artifacts artifacts --target "$GITHUB_SHA" --run-url "$RUN_URL"
+            --artifacts artifacts --commit "$GITHUB_SHA" --run-url "$RUN_URL"
   index:
     # index.json lists every file of every supported version (URL, size,
     # SHA-512). Downstream tools read it instead of one release that holds

@@ -301,10 +301,17 @@ def create_release(
     files: list[Path],
     *,
     latest: bool,
-    target: str | None,
     dry_run: bool,
 ) -> None:
-    """Create a draft, upload *files*, then publish it."""
+    """Create a draft, upload *files*, then publish it.
+
+    The tag goes on the head of the default branch, not on the commit the
+    binaries were built from (the notes name that commit). GitHub refuses
+    (HTTP 403 "Resource not accessible by integration") to let GITHUB_TOKEN
+    tag an older commit once a workflow file has changed since, because that
+    needs the `workflows` permission, which GITHUB_TOKEN cannot have. Builds
+    take hours, so Dependabot updates to the workflow often land meanwhile.
+    """
     print(f"Release {tag}: {len(files)} files, latest={latest}")
     if dry_run:
         for f in files:
@@ -322,8 +329,6 @@ def create_release(
         "--notes-file",
         nf.name,
     ]
-    if target:
-        args += ["--target", target]
     gh(*args, capture=False)
     for f in files:
         upload_with_retry(tag, f)
@@ -428,7 +433,6 @@ def cmd_seed(args: argparse.Namespace) -> None:
             notes,
             [work / "SHA512SUMS", *sorted(files.values())],
             latest=False,
-            target=None,
             dry_run=args.dry_run,
         )
     finally:
@@ -445,16 +449,20 @@ def cmd_version(args: argparse.Namespace) -> None:
     check_files(version, files, sums)
     out = Path(tempfile.mkdtemp()) / "SHA512SUMS"
     write_sums(out, {n: sums[n] for n in files})
-    notes = version_notes(
-        version, source, f"Built by {args.run_url}" if args.run_url else ""
-    )
+    how = ""
+    if args.commit or args.run_url:
+        how = "Built"
+        if args.commit:
+            how += f" from commit {args.commit}"
+        if args.run_url:
+            how += f" by {args.run_url}"
+    notes = version_notes(version, source, how)
     create_release(
         tag,
         tag,
         notes,
         [out, *sorted(files.values())],
         latest=False,
-        target=args.target,
         dry_run=args.dry_run,
     )
 
@@ -653,7 +661,9 @@ def main() -> None:
     p.add_argument("--version", required=True)
     p.add_argument("--tag", required=True)
     p.add_argument("--artifacts", required=True)
-    p.add_argument("--target", help="Commit to tag.")
+    p.add_argument(
+        "--commit", help="Commit the binaries were built from, named in the notes."
+    )
     p.add_argument("--run-url", default="")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_version)
