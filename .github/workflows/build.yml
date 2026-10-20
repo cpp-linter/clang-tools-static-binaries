@@ -158,6 +158,9 @@ jobs:
       && needs.plan.outputs.has-builds == 'true'
     permissions:
       contents: write
+      # For the build provenance attestations of the binaries.
+      id-token: write
+      attestations: write
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -172,6 +175,22 @@ jobs:
         with:
           path: artifacts
           pattern: 'clang-tools-*-${{ matrix.version }}_*'
+      - name: List the binaries of LLVM ${{ matrix.version }}
+        # Only files: the artifact folders also match the name pattern.
+        env:
+          VERSION: ${{ matrix.version }}
+        run: |
+          find artifacts -type f -name "*-${VERSION}_*" -exec sha256sum {} + \
+            | sed 's|  .*/|  |' | sort -k 2 > "$RUNNER_TEMP/binaries.sha256"
+          cat "$RUNNER_TEMP/binaries.sha256"
+      - name: Attest build provenance of LLVM ${{ matrix.version }}
+        # Records, signed and in Sigstore's public log, that each binary was
+        # built by this workflow run from this commit. Users check it with
+        # `gh attestation verify <file> --repo <this repository>`. This runs
+        # before the release is published, so no release goes out without it.
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: ${{ runner.temp }}/binaries.sha256
       - name: Publish ${{ matrix.tag }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
