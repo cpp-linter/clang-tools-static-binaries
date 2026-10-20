@@ -29,6 +29,7 @@ import hashlib
 import json
 import os
 import platform
+import struct
 import subprocess
 import sys
 import tarfile
@@ -187,13 +188,112 @@ def apply_patch(patch_file: Path, target_dir: Path) -> None:
     run(["patch", "-p1", "-d", str(target_dir), "-i", str(patch_file.resolve())])
 
 
-def print_dependencies(release: str) -> None:
-    """Print dynamic library dependencies of clang-format (macOS only)."""
-    clang_format = Path(release) / "build" / "bin" / "clang-format"
-    if clang_format.exists():
-        run(["otool", "-L", str(clang_format)])
-    else:
-        print(f"[warn] {clang_format} not found; skipping dependency listing.")
+# The binaries must run on a clean machine, so they may only load libraries
+# that come with the operating system.
+MACOS_SYSTEM_LIBRARY_DIRS = ("/usr/lib/", "/System/Library/")
+# A clean Windows install may lack the Visual C++ runtime DLLs, and installing
+# the Visual C++ Redistributable needs admin rights, so the runtime is linked
+# statically (/MT) and none of its DLLs may show up in the import table.
+WINDOWS_RUNTIME_DLL_PREFIXES = ("msvcp", "vcruntime", "ucrtbase", "api-ms-win-crt-")
+
+
+def pe_imports(path: Path) -> list[str]:
+    """Return the DLLs in the import table of the Windows executable *path*."""
+    data = path.read_bytes()
+    (pe_offset,) = struct.unpack_from("<I", data, 0x3C)
+    if data[pe_offset : pe_offset + 4] != b"PE\0\0":
+        raise RuntimeError(f"{path} is not a PE file.")
+    num_sections, optional_size = struct.unpack_from("<H12xH", data, pe_offset + 6)
+    optional = pe_offset + 24
+    (magic,) = struct.unpack_from("<H", data, optional)
+    # Data directory 1 is the import table; its offset depends on PE32/PE32+.
+    data_dirs = optional + (112 if magic == 0x20B else 96)
+    (import_rva,) = struct.unpack_from("<I", data, data_dirs + 8)
+    sections = [
+        struct.unpack_from("<8xIIII", data, optional + optional_size + 40 * i)
+        for i in range(num_sections)
+    ]
+
+    def file_offset(rva: int) -> int:
+        for virtual_size, virtual_address, raw_size, raw_pointer in sections:
+            if virtual_address <= rva < virtual_address + max(virtual_size, raw_size):
+                return rva - virtual_address + raw_pointer
+        raise RuntimeError(f"RVA {rva:#x} is outside every section of {path}.")
+
+    dlls: list[str] = []
+    if import_rva == 0:
+        return dlls
+    descriptor = file_offset(import_rva)
+    while data[descriptor : descriptor + 20] != bytes(20):
+        (name_rva,) = struct.unpack_from("<I", data, descriptor + 12)
+        name = file_offset(name_rva)
+        dlls.append(data[name : data.index(b"\0", name)].decode("ascii"))
+        descriptor += 20
+    return dlls
+
+
+def elf_interpreter(path: Path) -> str | None:
+    """Return the dynamic loader of the ELF executable *path*, or None if static."""
+    with open(path, "rb") as fh:
+        header = fh.read(64)
+        if header[:4] != b"\x7fELF" or header[4] != 2 or header[5] != 1:
+            raise RuntimeError(f"{path} is not a 64-bit little-endian ELF file.")
+        (ph_offset,) = struct.unpack_from("<Q", header, 0x20)
+        ph_size, ph_count = struct.unpack_from("<HH", header, 0x36)
+        for i in range(ph_count):
+            fh.seek(ph_offset + i * ph_size)
+            p_type, _, p_offset, _, _, p_filesz = struct.unpack("<IIQQQQ", fh.read(40))
+            if p_type == 3:  # PT_INTERP
+                fh.seek(p_offset)
+                return fh.read(p_filesz).rstrip(b"\0").decode()
+    return None
+
+
+def macos_dylibs(path: Path) -> list[str]:
+    """Return the shared libraries the macOS executable *path* links to."""
+    output = subprocess.check_output(["otool", "-L", str(path)], text=True)
+    return [line.split()[0] for line in output.splitlines() if line.startswith("\t")]
+
+
+def check_dependencies(bins: Path, tools: list[str], target_platform: str) -> None:
+    """Fail if a built tool needs a shared library that a clean machine may lack."""
+    problems = []
+    for tool in tools:
+        if target_platform.startswith("windows"):
+            exe = bins / f"{tool}.exe"
+            deps = pe_imports(exe)
+            bad = [
+                d for d in deps if d.lower().startswith(WINDOWS_RUNTIME_DLL_PREFIXES)
+            ]
+        elif target_platform.startswith("macos"):
+            exe = bins / tool
+            deps = macos_dylibs(exe)
+            bad = [d for d in deps if not d.startswith(MACOS_SYSTEM_LIBRARY_DIRS)]
+        else:
+            exe = bins / tool
+            interpreter = elf_interpreter(exe)
+            deps = [interpreter] if interpreter else []
+            bad = deps
+        print(f"{exe.name}: {', '.join(deps) or 'no shared libraries'}")
+        if bad:
+            problems.append(f"{exe.name}: {', '.join(bad)}")
+    if problems:
+        raise RuntimeError(
+            "These binaries need shared libraries that a clean machine may not have:\n  "
+            + "\n  ".join(problems)
+        )
+
+
+def windows_runtime_args(llvm_major: int) -> list[str]:
+    """CMake arguments that link the C/C++ runtime statically (/MT) on Windows.
+
+    LLVM 18 removed the LLVM_USE_CRT_<CONFIG> options in favour of CMake's
+    CMAKE_MSVC_RUNTIME_LIBRARY and ignores them silently: with only the old
+    option, LLVM 18 and later link the DLL runtime (MSVCP140.dll and others).
+    """
+    if llvm_major >= 18:
+        return ["-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"]
+    return ["-DLLVM_USE_CRT_MINSIZEREL=MT"]
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +364,6 @@ def cmake_args_windows_amd64() -> list[str]:
         "-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra",
         "-Thost=x64",
         "-DCMAKE_CXX_FLAGS=/MP /std:c++14",
-        "-DLLVM_USE_CRT_MINSIZEREL=MT",
     ]
 
 
@@ -277,7 +376,6 @@ def cmake_args_windows_arm64() -> list[str]:
         # Building every LLVM backend runs the windows-11-arm runner out of
         # memory; the tools only need the native one (as on macOS).
         "-DLLVM_TARGETS_TO_BUILD=AArch64",
-        "-DLLVM_USE_CRT_MINSIZEREL=MT",
     ]
 
 
@@ -313,6 +411,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     is_macos = target_platform.startswith("macos")
     is_windows = target_platform.startswith("windows")
     is_arm = target_platform.endswith("arm64")
+    llvm_major = int(version.split(".")[0])
 
     release = RELEASES[version]
     suffix = f"{version}_{target_platform}"
@@ -376,6 +475,8 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         "-B",
         str(build_dir),
     ] + CMAKE_ARGS_BY_OS[target_platform]()
+    if is_windows:
+        cmake_cmd += windows_runtime_args(llvm_major)
 
     run(cmake_cmd)
 
@@ -396,16 +497,14 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     run(build_cmd)
 
     # ------------------------------------------------------------------
-    # 5b. Print dynamic library dependencies (macOS only)
+    # 5b. Check that the binaries only need libraries the OS ships
     # ------------------------------------------------------------------
-    if is_macos:
-        print_dependencies(release)
+    bins = bin_dir(release, is_windows)
+    check_dependencies(bins, tools, target_platform)
 
     # ------------------------------------------------------------------
     # 6. Smoke test
     # ------------------------------------------------------------------
-    bins = bin_dir(release, is_windows)
-
     # Basic --version smoke test for every built tool.
     # Note: llvm-profdata on LLVM < 17 uses a subcommand interface and
     # does NOT support --version. See llvm-profdata.cpp main() — LLVM 17
@@ -413,7 +512,6 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     # Older versions only recognise subcommands (merge/show/overlap) and
     # --help. We verify the binary is executable by running it with no
     # args and checking for the expected usage output.
-    llvm_major = int(version.split(".")[0])
     for tool in tools:
         exe = bins / f"{tool}{dot_exe}"
         print(f"\nSmoke-testing {exe} ...")
