@@ -171,8 +171,10 @@ jobs:
     # (acceptance.py). publish-version only publishes a version when every
     # platform passed.
     needs: [plan, build]
+    # Also when some builds failed, so the other versions can be published;
+    # not when the run was cancelled.
     if: >-
-      always() && needs.plan.result == 'success'
+      !cancelled() && needs.plan.result == 'success'
       && needs.plan.outputs.has-builds == 'true' && !inputs.dry-run
     permissions:
       contents: read
