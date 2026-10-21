@@ -20,7 +20,7 @@ chmod +x clang-format-21_linux-amd64
 ./clang-format-21_linux-amd64 --version
 ```
 
-The [download page](https://cpp-linter.github.io/clang-tools-static-binaries/) lists the current release of every version and links to each file.
+The [download page](https://cpp-linter.github.io/clang-tools-static-binaries/) lists the current release of every version and links to each file. It also shows which versions LLVM, PyPI, conda-forge and Homebrew have, with an install command for each source.
 
 [clang-tools](https://cpp-linter.github.io/clang-tools-pip/) (pip), the [asdf plugin](https://github.com/cpp-linter/asdf-clang-tools) and the [Homebrew tap](https://github.com/cpp-linter/homebrew-tap) (macOS, `brew install cpp-linter/tap/clang-format@21`) install these same binaries for you.
 
@@ -85,6 +85,7 @@ Releases before 2026.06.29 have a `.sha512sum` file next to each binary instead 
 
 - Releases since 2026.06.05 are **immutable**: once published, their files are never modified.
 - Verify checksums using the `SHA512SUMS` file in the release, as in the [Quick start](https://github.com/cpp-linter/clang-tools-static-binaries#quick-start). It holds the SHA-512 hash of every binary in that release (`index.json` has the same hashes), in the format `sha512sum -c` reads.
+- Check where a binary was built: newly built releases have a [build provenance attestation](https://github.com/cpp-linter/clang-tools-static-binaries/blob/master/SECURITY.md#checking-where-a-binary-was-built) for every binary, which `gh attestation verify <file> --repo cpp-linter/clang-tools-static-binaries` checks.
 - Fork this repository and run GitHub Actions on your behalf
 - Build and test manually using `python3 build.py` (see [Building locally](https://github.com/cpp-linter/clang-tools-static-binaries#building-locally)) or the steps in [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
 
