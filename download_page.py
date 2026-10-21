@@ -175,8 +175,8 @@ pre code{padding:0;background:none}
 .scroll{overflow-x:auto;margin:.6rem 0} table{border-collapse:collapse;font-size:.92rem}
 th,td{border:1px solid var(--line);padding:.35rem .6rem;text-align:left;vertical-align:top}
 th{background:var(--head);font-weight:600;white-space:nowrap} td.num,th.num{text-align:right}
-td.cmd code{white-space:pre;display:block;background:none;padding:0}
-.install td{min-width:8.5rem}
+td.cmd code{white-space:pre-wrap;overflow-wrap:anywhere;display:block;background:none;padding:0}
+.install td{min-width:8.5rem} .install td.cmd{min-width:32rem}
 nav{display:flex;flex-wrap:wrap;gap:.2rem .9rem}
 """
 
