@@ -25,6 +25,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -86,6 +87,50 @@ def active_tools(version: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Files that every release has besides the binaries
+# ---------------------------------------------------------------------------
+# clang-tidy, clang-query and the other tools that parse code need clang's
+# builtin headers (stddef.h, stdarg.h, ...). clang looks for them in
+# <directory of the executable>/../lib/clang/<version>/include, so they are
+# published as an archive to unpack next to the bin directory.
+#
+# The headers and the license are the same for every platform. CI publishes
+# the copies from this platform: it builds every LLVM target, so its headers
+# include the generated ARM and RISC-V ones (arm_neon.h, riscv_vector.h, ...).
+COMMON_FILES_PLATFORM = "linux-amd64"
+COMMON_DIR = "common"
+LICENSE_FILE = "LICENSE.TXT"
+RESOURCE_HEADERS_TARGET = "clang-resource-headers"
+
+
+def resource_headers_name(version: str) -> str:
+    """``21`` -> ``clang-resource-headers-21.tar.gz``."""
+    return f"clang-resource-headers-{version}.tar.gz"
+
+
+def buildinfo_name(suffix: str) -> str:
+    """Build details of one platform, merged into BUILDINFO.json on publish."""
+    return f"buildinfo-{suffix}.json"
+
+
+# CMake cache entries recorded in the build details. They say which optional
+# libraries (zlib, zstd) went into the binaries and how they were linked.
+BUILDINFO_CMAKE_CACHE_KEYS = (
+    "CMAKE_BUILD_TYPE",
+    "CMAKE_MSVC_RUNTIME_LIBRARY",
+    "CMAKE_OSX_DEPLOYMENT_TARGET",
+    "LLVM_BUILD_STATIC",
+    "LLVM_ENABLE_ZLIB",
+    "LLVM_ENABLE_ZSTD",
+    "LLVM_TARGETS_TO_BUILD",
+    "LLVM_USE_CRT_MINSIZEREL",
+    "ZLIB_LIBRARY_RELEASE",
+    "zstd_LIBRARY",
+    "zstd_STATIC_LIBRARY",
+)
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -124,6 +169,162 @@ def sha512_file(path: Path) -> str:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    """Return the hex sha256 digest of *path*."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def resource_dir(build_dir: Path) -> Path:
+    """clang's resource directory in the build tree, e.g. ``build/lib/clang/21``.
+
+    LLVM 16 and later name it after the major version, older versions after
+    the full version (``lib/clang/15.0.2``). Visual Studio builds put it under
+    the configuration (``build/MinSizeRel/lib/clang/21``).
+    """
+    found = sorted(
+        {
+            header.parent.parent
+            for pattern in (
+                "lib/clang/*/include/stddef.h",
+                "*/lib/clang/*/include/stddef.h",
+            )
+            for header in build_dir.glob(pattern)
+        }
+    )
+    if len(found) != 1:
+        raise RuntimeError(
+            "Expected one clang resource directory with include/stddef.h in "
+            f"{build_dir}, found {[str(d) for d in found]}."
+        )
+    return found[0]
+
+
+def pack_resource_headers(resource: Path, archive: Path) -> None:
+    """Write the headers in *resource*/include to *archive*.
+
+    The archive holds ``lib/clang/<version>/include/...``: unpacked into the
+    parent of the bin directory that holds clang-tidy, the headers are where
+    clang looks for them. Owners, times and modes are fixed, so the same
+    headers always give the same bytes.
+    """
+    include = resource / "include"
+    prefix = Path("lib", "clang", resource.name, "include")
+    paths = sorted(include.rglob("*"), key=lambda p: p.relative_to(include).as_posix())
+    with (
+        open(archive, "wb") as raw,
+        gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz,
+        tarfile.open(fileobj=gz, mode="w", format=tarfile.GNU_FORMAT) as tar,
+    ):
+        for path in paths:
+            if not (path.is_dir() or path.is_file()):
+                continue
+            info = tar.gettarinfo(
+                str(path), (prefix / path.relative_to(include)).as_posix()
+            )
+            info.mtime = 0
+            info.uid = info.gid = 0
+            info.uname = info.gname = ""
+            info.mode = 0o755 if path.is_dir() else 0o644
+            if path.is_dir():
+                tar.addfile(info)
+            else:
+                with open(path, "rb") as fh:
+                    tar.addfile(info, fh)
+    count = sum(1 for p in paths if p.is_file())
+    print(f"Packed {count} headers from {include} into {archive.name}")
+
+
+def write_common_files(version: str, release: str, build_dir: Path) -> Path:
+    """Write the files shared by every platform to <release>/common/."""
+    common = Path(release) / COMMON_DIR
+    common.mkdir(parents=True, exist_ok=True)
+    headers = common / resource_headers_name(version)
+    pack_resource_headers(resource_dir(build_dir), headers)
+    license_file = common / LICENSE_FILE
+    license_file.write_bytes((Path(release) / "llvm" / LICENSE_FILE).read_bytes())
+    with open(common / "SHA512SUMS", "w") as sums:
+        sums.writelines(
+            f"{sha512_file(path)}  {path.name}\n" for path in (headers, license_file)
+        )
+    return common
+
+
+def cmake_cache(build_dir: Path) -> dict[str, str]:
+    """The entries of BUILDINFO_CMAKE_CACHE_KEYS that the CMake cache has."""
+    entries = {}
+    cache = build_dir / "CMakeCache.txt"
+    if not cache.is_file():
+        return entries
+    for line in cache.read_text(errors="replace").splitlines():
+        key, sep, value = line.partition("=")
+        name = key.split(":", 1)[0]
+        if sep and name in BUILDINFO_CMAKE_CACHE_KEYS:
+            entries[name] = value
+    return dict(sorted(entries.items()))
+
+
+def compiler_info(build_dir: Path) -> dict[str, str]:
+    """C++ compiler ID and version that CMake detected."""
+    info = {}
+    for path in sorted(build_dir.glob("CMakeFiles/*/CMakeCXXCompiler.cmake")):
+        for line in path.read_text(errors="replace").splitlines():
+            for key, name in (
+                ("CMAKE_CXX_COMPILER_ID", "id"),
+                ("CMAKE_CXX_COMPILER_VERSION", "version"),
+            ):
+                if line.startswith(f"set({key} "):
+                    info[name] = line.split('"')[1] if '"' in line else ""
+    return info
+
+
+def write_buildinfo(
+    path: Path,
+    *,
+    version: str,
+    target_platform: str,
+    source_url: str,
+    tarball: Path,
+    cmake_args: list[str],
+    targets: list[str],
+    patches: list[Path],
+    build_dir: Path,
+) -> None:
+    """Record how the binaries of one platform were built."""
+    cmake_version = subprocess.check_output(["cmake", "--version"], text=True)
+    runner = {
+        name: os.environ[env]
+        for name, env in (
+            ("image_os", "ImageOS"),
+            ("image_version", "ImageVersion"),
+            ("os", "RUNNER_OS"),
+            ("arch", "RUNNER_ARCH"),
+        )
+        if os.environ.get(env)
+    }
+    info = {
+        "platform": target_platform,
+        "llvm_major": version,
+        "source": {
+            "name": tarball.name,
+            "url": source_url,
+            "sha256": sha256_file(tarball),
+        },
+        "patches": [{"name": p.name, "sha256": sha256_file(p)} for p in patches],
+        "cmake_args": cmake_args,
+        "cmake_cache": cmake_cache(build_dir),
+        "build_targets": targets,
+        "compiler": compiler_info(build_dir),
+        "cmake_version": cmake_version.splitlines()[0].removeprefix("cmake version "),
+        "runner": runner,
+    }
+    path.write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
+    print(f"Build details written to {path.name}")
 
 
 def download_file(url: str, dest: Path) -> None:
@@ -452,10 +653,12 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     if is_macos:
         patch_cmake_implicit_link_macos()
 
+    patches: list[Path] = []
     if is_arm and version == "17":
         patch_path = script_dir / "arm_streaming_fix.patch"
         if patch_path.exists():
             apply_patch(patch_path, Path(release))
+            patches.append(patch_path)
         else:
             print(
                 f"[warn] Patch not found at {patch_path}; skipping ARM streaming fix."
@@ -468,22 +671,17 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
     build_dir = Path(release) / "build"
     build_dir.mkdir(parents=True, exist_ok=True)
 
-    cmake_cmd = [
-        "cmake",
-        "-S",
-        str(source_dir),
-        "-B",
-        str(build_dir),
-    ] + CMAKE_ARGS_BY_OS[target_platform]()
+    cmake_args = CMAKE_ARGS_BY_OS[target_platform]()
     if is_windows:
-        cmake_cmd += windows_runtime_args(llvm_major)
+        cmake_args += windows_runtime_args(llvm_major)
 
-    run(cmake_cmd)
+    run(["cmake", "-S", str(source_dir), "-B", str(build_dir)] + cmake_args)
 
     # ------------------------------------------------------------------
     # 5. Build
     # ------------------------------------------------------------------
     tools = active_tools(version)
+    targets = tools + [RESOURCE_HEADERS_TARGET]
     build_cmd = (
         [
             "cmake",
@@ -492,7 +690,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         ]
         + build_args_by_os(is_windows)
         + ["--target"]
-        + tools
+        + targets
     )
     run(build_cmd)
 
@@ -553,7 +751,24 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
             print(f"{digest}  {binary.name}")
     print(f"Checksums written to {sha512sums_path.name}")
 
+    # ------------------------------------------------------------------
+    # 9. Build details, clang's builtin headers and the license
+    # ------------------------------------------------------------------
+    write_buildinfo(
+        bins / buildinfo_name(suffix),
+        version=version,
+        target_platform=target_platform,
+        source_url=url,
+        tarball=tarball,
+        cmake_args=cmake_args,
+        targets=targets,
+        patches=patches,
+        build_dir=build_dir,
+    )
+    common = write_common_files(version, release, build_dir)
+
     print(f"\nBuild complete. Artifacts are in: {bins.resolve()}")
+    print(f"Files shared by every platform are in: {common.resolve()}")
 
 
 # ---------------------------------------------------------------------------

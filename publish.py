@@ -19,6 +19,8 @@ Subcommands (all are called from .github/workflows/build.yml):
                 release (SEED_FROM, once) and which to build.
 * ``seed``    - copy one version's files out of SEED_FROM into a new
                 version release.
+* ``prepare`` - check one version's build artifacts and acceptance results,
+                write its BUILDINFO.json and list the files to attest.
 * ``version`` - publish one version release from the build artifacts.
 * ``index``   - write index.json and index.html from the version releases.
 
@@ -57,9 +59,14 @@ PLATFORM_NAMES = [p["platform"] for p in PLATFORMS]
 
 # Files whose changes affect the binaries. A pull request that touches one of
 # them builds the newest and the oldest version to check the change.
-BUILD_INPUTS = ["build.py", "*.patch", ".github/workflows/build.yml"]
+BUILD_INPUTS = ["build.py", "acceptance.py", "*.patch", ".github/workflows/build.yml"]
 
 METADATA_FILES = {"SHA512SUMS", "versions.json"}
+
+# How each platform was built, merged from the buildinfo-<suffix>.json files
+# that build.py writes.
+BUILDINFO_FILE = "BUILDINFO.json"
+BUILDINFO_SCHEMA_VERSION = 1
 
 DEFAULT_REPO = "cpp-linter/clang-tools-static-binaries"
 INDEX_SCHEMA_VERSION = 1
@@ -238,12 +245,20 @@ def upload_with_retry(tag: str, path: Path, retries: int = 5) -> None:
             delay *= 2
 
 
-def sha512(path: Path) -> str:
-    digest = hashlib.sha512()
+def _digest(path: Path, algorithm: str) -> str:
+    digest = hashlib.new(algorithm)
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha512(path: Path) -> str:
+    return _digest(path, "sha512")
+
+
+def sha256(path: Path) -> str:
+    return _digest(path, "sha256")
 
 
 def read_sums(path: Path) -> dict[str, str]:
@@ -270,25 +285,53 @@ def expected_files(version: str) -> set[str]:
     return names
 
 
-def select_files(version: str, paths) -> dict[str, Path]:
-    """Map file name to path for the binaries of *version*; ignore anything else."""
-    wanted = expected_files(version)
+def common_files(version: str) -> set[str]:
+    """Files besides the binaries that every newly built release has.
+
+    clang's builtin headers and LLVM's license are the same for every
+    platform; BUILDINFO.json describes the builds of all platforms. Releases
+    copied out of SEED_FROM do not have them.
+    """
+    return {build.resource_headers_name(version), build.LICENSE_FILE, BUILDINFO_FILE}
+
+
+def select_files(
+    version: str, paths, extra: set[str] | frozenset[str] = frozenset()
+) -> dict[str, Path]:
+    """Map file name to path for the binaries of *version* and the *extra*
+    files; ignore anything else."""
+    wanted = expected_files(version) | extra
     files = {}
     for path in paths:
         if path.is_file() and path.name in wanted:
             files[path.name] = path
-        elif path.is_file() and path.name not in METADATA_FILES:
+        elif (
+            path.is_file()
+            and path.name not in METADATA_FILES | {BUILDINFO_FILE}
+            and not re.fullmatch(r"buildinfo-.+\.json", path.name)
+        ):
             print(f"::warning::Ignoring unexpected file {path.name}")
     return files
 
 
-def check_files(version: str, files: dict[str, Path], sums: dict[str, str]) -> None:
-    """Fail unless every tool is present for every platform and matches SHA512SUMS."""
+def check_files(
+    version: str,
+    files: dict[str, Path],
+    sums: dict[str, str],
+    extra: set[str] | frozenset[str] = frozenset(),
+) -> None:
+    """Fail unless every tool is present for every platform, the *extra* files
+    are present, and all match SHA512SUMS."""
     missing = sorted(expected_files(version) - set(files))
     if missing:
         raise SystemExit(
             f"LLVM {version}: {len(missing)} binaries missing, not publishing. "
             f"First missing: {', '.join(missing[:6])}"
+        )
+    missing = sorted(extra - set(files))
+    if missing:
+        raise SystemExit(
+            f"LLVM {version}: {', '.join(missing)} missing, not publishing."
         )
     for name, path in files.items():
         if sums.get(name) != sha512(path):
@@ -343,21 +386,46 @@ def create_release(
     )
 
 
-def version_notes(version: str, source: str, how: str) -> str:
-    return "\n".join(
-        [
-            f"LLVM {version} binaries built from `{source}`.",
+def version_notes(version: str, source: str, how: str, *, built: bool = False) -> str:
+    """Release notes. *built* releases also have the common_files()."""
+    lines = [
+        f"LLVM {version} binaries built from `{source}`.",
+        "",
+        how,
+        "",
+        "Platforms: " + ", ".join(PLATFORM_NAMES),
+        "",
+        "Tools: " + ", ".join(build.active_tools(version)),
+        "",
+    ]
+    if built:
+        lines += [
+            (
+                "clang-tidy, clang-query and clang-include-cleaner need clang's "
+                "builtin headers (`stddef.h`, `stdarg.h` and others). Unpack "
+                f"`{build.resource_headers_name(version)}` in the parent of the "
+                "directory that holds the binaries: it creates "
+                "`lib/clang/<version>/include`, where the tools look for them."
+            ),
             "",
-            how,
+            (
+                "Before this release was published, the binaries of every "
+                "platform were installed that way and run on test code "
+                "(`acceptance.py`)."
+            ),
             "",
-            "Platforms: " + ", ".join(PLATFORM_NAMES),
-            "",
-            "Tools: " + ", ".join(build.active_tools(version)),
-            "",
-            "Verify downloads with `sha512sum -c SHA512SUMS --ignore-missing`.",
+            (
+                f"`{build.LICENSE_FILE}` is LLVM's license. `{BUILDINFO_FILE}` "
+                "records how each platform was built: source and its SHA-256, "
+                "patches, CMake options, compiler and runner image."
+            ),
             "",
         ]
-    )
+    lines += [
+        "Verify downloads with `sha512sum -c SHA512SUMS --ignore-missing`.",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -440,14 +508,131 @@ def cmd_seed(args: argparse.Namespace) -> None:
         shutil.rmtree(work, ignore_errors=True)
 
 
+def collect_files(
+    version: str, artifacts: Path, extra: set[str]
+) -> tuple[dict[str, Path], dict[str, str]]:
+    """The files of *version* in the build artifacts and their SHA-512.
+
+    Fails unless every binary and every *extra* file is there and matches
+    the SHA512SUMS files that the builds wrote.
+    """
+    sums: dict[str, str] = {}
+    for sums_file in artifacts.rglob("SHA512SUMS"):
+        sums.update(read_sums(sums_file))
+    files = select_files(version, artifacts.rglob("*"), extra)
+    if BUILDINFO_FILE in files:
+        # Written by `prepare` in the publish job, so no build has its sum.
+        sums[BUILDINFO_FILE] = sha512(files[BUILDINFO_FILE])
+    check_files(version, files, sums, extra)
+    return files, sums
+
+
+def merge_buildinfo(
+    version: str,
+    tag: str,
+    fragments: list[Path],
+    *,
+    repo: str,
+    commit: str,
+    run_url: str,
+) -> dict:
+    """BUILDINFO.json: the build details of every platform in one file."""
+    platforms: dict[str, dict] = {}
+    for path in fragments:
+        info = json.loads(path.read_text(encoding="utf-8"))
+        if info.get("llvm_major") != version:
+            raise SystemExit(f"{path.name} is not about LLVM {version}")
+        platforms[info["platform"]] = info
+    missing = [p for p in PLATFORM_NAMES if p not in platforms]
+    if missing:
+        raise SystemExit(
+            f"LLVM {version}: no build details for {', '.join(missing)}, "
+            "not publishing."
+        )
+    source = platforms[PLATFORM_NAMES[0]]["source"]
+    if source["name"] != f"{build.RELEASES[version]}.tar.xz":
+        raise SystemExit(f"LLVM {version}: built from {source['name']}")
+    for name, info in platforms.items():
+        if info["source"] != source:
+            raise SystemExit(
+                f"LLVM {version}: {name} was built from a different source "
+                f"({info['source']} instead of {source})"
+            )
+    drop = {"platform", "llvm_major", "source"}
+    return {
+        "schema_version": BUILDINFO_SCHEMA_VERSION,
+        "llvm_version": tag_source(tag)[len("llvm-project-") : -len(".src")],
+        "tag": tag,
+        "source": source,
+        "build": {
+            "repository": repo,
+            "commit": commit,
+            "workflow": ".github/workflows/build.yml",
+            "run_url": run_url,
+        },
+        "tools": build.active_tools(version),
+        "resource_headers": {
+            "name": build.resource_headers_name(version),
+            "built_on": build.COMMON_FILES_PLATFORM,
+        },
+        "license": build.LICENSE_FILE,
+        "platforms": {
+            p: {k: v for k, v in platforms[p].items() if k not in drop}
+            for p in PLATFORM_NAMES
+        },
+    }
+
+
+def check_acceptance(version: str, accepted: Path) -> None:
+    """Fail unless acceptance.py passed on every platform."""
+    failed = []
+    for platform_name in PLATFORM_NAMES:
+        report = accepted / f"{version}_{platform_name}.json"
+        if not report.is_file():
+            failed.append(f"{platform_name} (no result)")
+            continue
+        result = json.loads(report.read_text(encoding="utf-8"))
+        if result.get("passed") is not True:
+            bad = [name for name, ok in result.get("checks", {}).items() if not ok]
+            failed.append(f"{platform_name} ({', '.join(bad) or 'failed'})")
+    if failed:
+        raise SystemExit(
+            f"LLVM {version}: acceptance tests failed on {'; '.join(failed)}, "
+            "not publishing."
+        )
+
+
+def cmd_prepare(args: argparse.Namespace) -> None:
+    version, tag = args.version, args.tag
+    artifacts = Path(args.artifacts)
+    common = common_files(version)
+    collect_files(version, artifacts, common - {BUILDINFO_FILE})
+    info = merge_buildinfo(
+        version,
+        tag,
+        sorted(artifacts.rglob("buildinfo-*.json")),
+        repo=os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPO),
+        commit=args.commit,
+        run_url=args.run_url,
+    )
+    (artifacts / BUILDINFO_FILE).write_text(
+        json.dumps(info, indent=2) + "\n", encoding="utf-8"
+    )
+    check_acceptance(version, Path(args.accepted))
+    files, _ = collect_files(version, artifacts, common)
+    # The input of actions/attest-build-provenance: every file the release
+    # will have, in `sha256sum` format.
+    Path(args.subjects).write_text(
+        "".join(f"{sha256(files[name])}  {name}\n" for name in sorted(files)),
+        encoding="utf-8",
+    )
+    print(f"LLVM {version}: {len(files)} files ready to attest and publish.")
+
+
 def cmd_version(args: argparse.Namespace) -> None:
     version, tag = args.version, args.tag
     source = build.RELEASES[version]
-    sums: dict[str, str] = {}
-    for sums_file in Path(args.artifacts).rglob("SHA512SUMS"):
-        sums.update(read_sums(sums_file))
-    files = select_files(version, Path(args.artifacts).rglob("*"))
-    check_files(version, files, sums)
+    files, sums = collect_files(version, Path(args.artifacts), common_files(version))
     out = Path(tempfile.mkdtemp()) / "SHA512SUMS"
     write_sums(out, {n: sums[n] for n in files})
     how = ""
@@ -457,11 +642,11 @@ def cmd_version(args: argparse.Namespace) -> None:
             how += f" from commit {args.commit}"
         if args.run_url:
             how += f" by {args.run_url}"
-    notes = version_notes(version, source, how)
-    # build.yml attests every binary before it runs this command.
+    notes = version_notes(version, source, how, built=True)
+    # build.yml attests every file before it runs this command.
     repo = os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPO)
     notes += (
-        "\nEvery binary has a build provenance attestation. Check which "
+        "\nEvery file has a build provenance attestation. Check which "
         "workflow run and commit built a file with "
         f"`gh attestation verify <file> --repo {repo}`.\n"
     )
@@ -569,6 +754,20 @@ def build_index(
             "sha512sums_url": assets[tag]["SHA512SUMS"]["url"],
             "tools": files,
         }
+        # Only in releases built since these files were added.
+        for key, name in (
+            ("resource_headers", build.resource_headers_name(version)),
+            ("license", build.LICENSE_FILE),
+            ("buildinfo", BUILDINFO_FILE),
+        ):
+            asset = assets[tag].get(name)
+            if asset is not None and name in sums[tag]:
+                versions[version][key] = {
+                    "name": name,
+                    "url": asset["url"],
+                    "size": asset["size"],
+                    "sha512": sums[tag][name],
+                }
     tools_info: dict[str, dict] = {}
     for tool in build.TOOLS:
         info: dict[str, int] = {}
@@ -638,6 +837,26 @@ def main() -> None:
     p.add_argument("--from-tag", required=True)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_seed)
+
+    p = sub.add_parser(
+        "prepare",
+        help="Check one version's artifacts and acceptance results, write "
+        "BUILDINFO.json and list the files to attest.",
+    )
+    p.add_argument("--version", required=True)
+    p.add_argument("--tag", required=True)
+    p.add_argument("--artifacts", required=True)
+    p.add_argument(
+        "--accepted",
+        required=True,
+        help="Directory with the <version>_<platform>.json files of acceptance.py.",
+    )
+    p.add_argument("--commit", required=True)
+    p.add_argument("--run-url", default="")
+    p.add_argument(
+        "--subjects", required=True, help="Write the SHA-256 of every file here."
+    )
+    p.set_defaults(func=cmd_prepare)
 
     p = sub.add_parser("version", help="Publish one version from build artifacts.")
     p.add_argument("--version", required=True)

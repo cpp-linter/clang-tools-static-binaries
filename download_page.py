@@ -379,13 +379,35 @@ def render_html(
         for tool, by_platform in info["tools"].items():
             cells = "".join(file_cell(by_platform.get(p)) for p in index["platforms"])
             tool_rows.append(f"<tr><th>{esc(tool)}</th>{cells}</tr>")
+        # Releases built since these files were added also have clang's
+        # builtin headers, LLVM's license and the build details.
+        extras = "".join(
+            f' · <a href="{esc(info[key]["url"])}">{label}</a>'
+            for key, label in (
+                ("resource_headers", "clang headers"),
+                ("license", "LICENSE.TXT"),
+                ("buildinfo", "BUILDINFO.json"),
+            )
+            if key in info
+        )
         sections.append(
             f'<h3 id="llvm-{esc(major)}">LLVM {esc(info["version"])}</h3>'
             f'<p class="muted">Release <a href="{esc(info["release_url"])}">'
             f"{esc(info['tag'])}</a> · "
-            f'<a href="{esc(info["sha512sums_url"])}">SHA512SUMS</a></p>'
+            f'<a href="{esc(info["sha512sums_url"])}">SHA512SUMS</a>{extras}</p>'
             f'<div class="scroll"><table><thead><tr><th>Tool</th>{platform_head}</tr>'
             f"</thead><tbody>{''.join(tool_rows)}</tbody></table></div>"
+        )
+
+    headers_note = ""
+    if any("resource_headers" in info for info in index["versions"].values()):
+        headers_note = (
+            "<p>clang-tidy, clang-query and clang-include-cleaner also need "
+            "clang's builtin headers (<code>stddef.h</code> and others). Unpack "
+            "the release's <em>clang headers</em> archive in the parent of the "
+            "folder that holds the binary: it creates "
+            "<code>lib/clang/&lt;version&gt;/include</code>, where they look "
+            "for the headers.</p>\n"
         )
 
     oldest = min(majors, key=int)
@@ -431,7 +453,7 @@ gh attestation verify {esc(first["name"])} --repo {esc(repo)}</code></pre>
 
 <h2 id="files">Files</h2>
 <p class="muted">Sizes link to the files. Windows files end in <code>.exe</code>.</p>
-{"".join(sections)}
+{headers_note}{"".join(sections)}
 
 </main>
 <footer class="foot"><div>Part of <a href="https://cpp-linter.github.io/">cpp-linter</a>.

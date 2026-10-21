@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/build.yml"
       - "build.py"
+      - "acceptance.py"
       - "publish.py"
       - "download_page.py"
       - "download_page.css"
@@ -16,6 +17,7 @@ on:
     paths:
       - ".github/workflows/build.yml"
       - "build.py"
+      - "acceptance.py"
       - "publish.py"
       - "download_page.py"
       - "download_page.css"
@@ -73,7 +75,7 @@ jobs:
           # e.g. Dependabot updates) does not change how LLVM is built, so it
           # does not trigger the test builds.
           strip_uses() { grep -vE '^[[:space:]]*(- )?uses:' || true; }
-          if git diff --quiet FETCH_HEAD HEAD -- build.py '*.patch' \
+          if git diff --quiet FETCH_HEAD HEAD -- build.py acceptance.py '*.patch' \
             && diff -q <(git show FETCH_HEAD:.github/workflows/build.yml | strip_uses) \
                        <(strip_uses < .github/workflows/build.yml) > /dev/null; then
             echo "BUILD_INPUTS_CHANGED=" >> "$GITHUB_ENV"
@@ -148,14 +150,72 @@ jobs:
           ${{ matrix.release }}/build/**/clang-*-${{ env.suffix }}*
           ${{ matrix.release }}/build/**/llvm-*-${{ env.suffix }}*
           ${{ matrix.release }}/build/**/SHA512SUMS
+          ${{ matrix.release }}/build/**/buildinfo-${{ env.suffix }}.json
         # ** covers both bin/ (Linux/macOS) and MinSizeRel/bin/ (Windows)
         # clang-* matches clang-format, clang-tidy, clang-query, clang-scan-deps, etc.
         # llvm-* matches llvm-cov, llvm-profdata, llvm-symbolizer
+        # buildinfo-*.json records how this platform was built (BUILDINFO.json)
+        retention-days: 3
+    - name: Upload clang's headers and LLVM's license
+      # The same for every platform. This platform builds every LLVM target,
+      # so its headers include the ARM and RISC-V ones. See build.py.
+      if: matrix.platform == 'linux-amd64'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: common-files-${{ matrix.clang-version }}
+        path: ${{ matrix.release }}/common/
+        retention-days: 3
+  acceptance:
+    # Installs each platform's binaries with the headers that will be
+    # published, the way users get them, and runs them on test code
+    # (acceptance.py). publish-version only publishes a version when every
+    # platform passed.
+    needs: [plan, build]
+    if: >-
+      always() && needs.plan.result == 'success'
+      && needs.plan.outputs.has-builds == 'true' && !inputs.dry-run
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.build-matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      suffix: '${{ matrix.clang-version }}_${{ matrix.os }}-${{ matrix.arch }}'
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Download the LLVM ${{ matrix.clang-version }} binaries for ${{ matrix.platform }}
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: clang-tools-${{ matrix.release }}-${{ env.suffix }}
+        path: files
+    - name: Download clang's headers
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: common-files-${{ matrix.clang-version }}
+        path: files/common
+    - name: Run the binaries on test code
+      shell: bash
+      env:
+        VERSION: ${{ matrix.clang-version }}
+        PLATFORM: ${{ matrix.platform }}
+      run: |
+        python3 acceptance.py --version "$VERSION" --platform "$PLATFORM" \
+          --files files --report "results/${suffix}.json"
+    - name: Upload the result
+      if: always()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: acceptance-${{ env.suffix }}
+        path: results/
         retention-days: 3
   publish-version:
-    # A version is published only when all of its platforms built.
-    # A failure in one version does not hold back the others.
-    needs: [plan, build]
+    # A version is published only when all of its platforms built and passed
+    # the acceptance tests. A failure in one version does not hold back the
+    # others.
+    needs: [plan, build, acceptance]
     if: >-
       always() && github.event_name != 'pull_request' && !inputs.dry-run
       && github.ref == 'refs/heads/master'
@@ -179,22 +239,38 @@ jobs:
         with:
           path: artifacts
           pattern: 'clang-tools-*-${{ matrix.version }}_*'
-      - name: List the binaries of LLVM ${{ matrix.version }}
-        # Only files: the artifact folders also match the name pattern.
+      - name: Download clang's headers and LLVM's license
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: common-files-${{ matrix.version }}
+          path: artifacts/common
+      - name: Download the acceptance results of LLVM ${{ matrix.version }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: accepted
+          pattern: 'acceptance-${{ matrix.version }}_*'
+          merge-multiple: true
+      - name: Check LLVM ${{ matrix.version }} and write BUILDINFO.json
+        # Fails unless every platform built and passed the acceptance tests.
+        # Lists every file of the release for the attestation.
         env:
           VERSION: ${{ matrix.version }}
+          TAG: ${{ matrix.tag }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          find artifacts -type f -name "*-${VERSION}_*" -exec sha256sum {} + \
-            | sed 's|  .*/|  |' | sort -k 2 > "$RUNNER_TEMP/binaries.sha256"
-          cat "$RUNNER_TEMP/binaries.sha256"
+          python3 publish.py prepare --version "$VERSION" --tag "$TAG" \
+            --artifacts artifacts --accepted accepted \
+            --commit "$GITHUB_SHA" --run-url "$RUN_URL" \
+            --subjects "$RUNNER_TEMP/files.sha256"
+          cat "$RUNNER_TEMP/files.sha256"
       - name: Attest build provenance of LLVM ${{ matrix.version }}
-        # Records, signed and in Sigstore's public log, that each binary was
+        # Records, signed and in Sigstore's public log, that each file was
         # built by this workflow run from this commit. Users check it with
         # `gh attestation verify <file> --repo <this repository>`. This runs
         # before the release is published, so no release goes out without it.
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-checksums: ${{ runner.temp }}/binaries.sha256
+          subject-checksums: ${{ runner.temp }}/files.sha256
       - name: Publish ${{ matrix.tag }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
