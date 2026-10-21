@@ -185,24 +185,27 @@ def resource_dir(build_dir: Path) -> Path:
 
     LLVM 16 and later name it after the major version, older versions after
     the full version (``lib/clang/15.0.2``). Visual Studio builds put it under
-    the configuration (``build/MinSizeRel/lib/clang/21``).
+    the configuration that was built (``build/MinSizeRel/lib/clang/21``, see
+    build_args_by_os). LLVM 23 builds there also have copies under Debug,
+    Release and RelWithDebInfo, so only that configuration is searched.
     """
-    found = sorted(
-        {
-            header.parent.parent
-            for pattern in (
-                "lib/clang/*/include/stddef.h",
-                "*/lib/clang/*/include/stddef.h",
-            )
-            for header in build_dir.glob(pattern)
-        }
-    )
-    if len(found) != 1:
-        raise RuntimeError(
-            "Expected one clang resource directory with include/stddef.h in "
-            f"{build_dir}, found {[str(d) for d in found]}."
+    for parent in (
+        build_dir / "lib" / "clang",
+        build_dir / "MinSizeRel" / "lib" / "clang",
+    ):
+        found = sorted(
+            d for d in parent.glob("*") if (d / "include" / "stddef.h").is_file()
         )
-    return found[0]
+        if len(found) == 1:
+            return found[0]
+        if found:
+            raise RuntimeError(
+                f"Expected one clang resource directory in {parent}, found "
+                f"{[d.name for d in found]}."
+            )
+    raise RuntimeError(
+        f"No clang resource directory with include/stddef.h in {build_dir}."
+    )
 
 
 def pack_resource_headers(resource: Path, archive: Path) -> None:
