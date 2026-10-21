@@ -577,11 +577,15 @@ def build_index(
         if tool == "clang-scan-deps":
             info["min_llvm_version"] = build.CLANG_SCAN_DEPS_MIN_VERSION
         tools_info[tool] = info
+    latest = max(versions, key=int) if versions else None
     return {
         "schema_version": INDEX_SCHEMA_VERSION,
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "repository": repo,
-        "latest": max(versions, key=int) if versions else None,
+        "latest": latest,
+        # The full version of the newest LLVM major, e.g. "23.1.3", for the
+        # README badge and for tools that only want the newest version.
+        "latest_version": versions[latest]["version"] if latest else None,
         "platforms": PLATFORM_NAMES,
         "tools": tools_info,
         "versions": {v: versions[v] for v in sort_versions(versions)},
