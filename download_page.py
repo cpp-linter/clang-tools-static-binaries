@@ -150,12 +150,10 @@ def _size(num_bytes: int) -> str:
     return f"{num_bytes / 1_000_000:.1f} MB"
 
 
-def _newest_major(versions: dict[str, str] | None, at_most: str) -> str:
-    """The newest major in *versions* not above *at_most*; *at_most* if unknown."""
-    if not versions:
-        return at_most
-    majors = [int(m) for m in versions if int(m) <= int(at_most)]
-    return str(max(majors)) if majors else at_most
+def _newest_major(versions: dict[str, str] | None, at_most: str) -> str | None:
+    """The newest major in *versions* not above *at_most*, or None if unknown."""
+    majors = [int(m) for m in versions or {} if int(m) <= int(at_most)]
+    return str(max(majors)) if majors else None
 
 
 PAGE_CSS = """
@@ -260,12 +258,15 @@ def render_html(
         f"APIs when this page was generated.{unread_note}</p>"
     )
 
-    # Install commands, with the newest version each source has.
-    def m(key: str) -> str:
-        return _newest_major(others.get(key), latest)
+    # Install commands, with the newest version each source has. Without a
+    # version from the source, the command installs whatever is newest there.
+    def pinned(package: str, key: str, spec: str) -> str:
+        major = _newest_major(others.get(key), latest)
+        return f'"{package}{spec.format(major)}"' if major else package
 
-    brew_major = m("homebrew")
-    brew_formula = (others.get("homebrew") or {}).get(brew_major, f"llvm@{brew_major}")
+    brew = others.get("homebrew") or {}
+    brew_major = _newest_major(brew, latest)
+    brew_formula = brew[brew_major] if brew_major else "llvm"
     # (source, maintained by, tools, platforms, install command or a note)
     sources = [
         (
@@ -312,8 +313,10 @@ def render_html(
             "clang-format, clang-tidy",
             "Linux, macOS, Windows",
             (
-                f'pip install "clang-format=={m("pypi-clang-format")}.*" '
-                f'"clang-tidy=={m("pypi-clang-tidy")}.*"'
+                "pip install "
+                + pinned("clang-format", "pypi-clang-format", "=={}.*")
+                + " "
+                + pinned("clang-tidy", "pypi-clang-tidy", "=={}.*")
             ),
             None,
         ),
@@ -342,8 +345,10 @@ def render_html(
             "clang-format; clang-tidy is in clang-tools",
             "Linux, macOS, Windows",
             (
-                f'conda install -c conda-forge "clang-format={m("conda-clang-format")}" '
-                f'"clang-tools={m("conda-clang-tools")}"'
+                "conda install -c conda-forge "
+                + pinned("clang-format", "conda-clang-format", "={}")
+                + " "
+                + pinned("clang-tools", "conda-clang-tools", "={}")
             ),
             None,
         ),
