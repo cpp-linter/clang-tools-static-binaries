@@ -156,26 +156,41 @@ def _newest_major(versions: dict[str, str] | None, at_most: str) -> str | None:
     return str(max(majors)) if majors else None
 
 
+# The look of https://cpp-linter.github.io: its fonts come from the site's
+# shared.css (same origin as this page), and the colors repeat that file's paper,
+# ink and indigo tokens for the light and dark schemes.
 PAGE_CSS = """
-:root{color-scheme:light dark;--bg:#fff;--fg:#1f2328;--muted:#59636e;--line:#d1d9e0;
---code:#f6f8fa;--link:#0969da;--head:#f6f8fa}
-@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#9198a1;
---line:#3d444d;--code:#151b23;--link:#4493f8;--head:#151b23}}
+:root{color-scheme:light dark;--bg:#f7f5ef;--fg:#171a2e;--muted:#62677f;--line:#e3dfd3;
+--strong:#d8d3c4;--code:#eeeae0;--link:#4051b5;--head:#efece4}
+@media (prefers-color-scheme:dark){:root{--bg:#16182a;--fg:#ece9e1;--muted:#9b9eb3;
+--line:#2b2e45;--strong:#34385a;--code:#1f2237;--link:#8e9cf5;--head:#1f2237}}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
-max-width:72rem;margin:0 auto;padding:1.5rem 1rem 3rem}
-a{color:var(--link)} h1{margin:.2rem 0 .5rem;font-size:1.8rem}
-h2{margin-top:2.5rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
-h3{margin:2rem 0 .3rem} p,li{max-width:50rem} .muted{color:var(--muted);font-size:.9rem}
-code,pre{font:.85rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);
-border-radius:6px} code{padding:.1rem .3rem} pre{padding:.7rem 1rem;overflow-x:auto;margin:.4rem 0}
-pre code{padding:0;background:none}
+body{background:var(--bg);color:var(--fg);margin:0;
+font:16px/1.55 "Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.top{border-bottom:1px solid var(--line)}
+.top>div,main,.foot>div{max-width:72rem;margin:0 auto;padding-left:1rem;padding-right:1rem}
+.top>div{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.5rem;padding-top:.6rem;padding-bottom:.6rem}
+.brand{display:flex;align-items:center;gap:.55rem;color:var(--fg);text-decoration:none;
+font:700 1.15rem "Bricolage Grotesque","Instrument Sans",system-ui,sans-serif}
+.top nav{display:flex;flex-wrap:wrap;gap:.2rem 1.2rem}
+.top nav a{color:var(--muted);text-decoration:none;font-weight:600} .top nav a:hover{color:var(--fg)}
+main{padding-top:1.2rem;padding-bottom:2rem}
+a{color:var(--link)} a:hover{color:var(--fg)}
+h1,h2,h3{font-family:"Bricolage Grotesque","Instrument Sans",system-ui,sans-serif;letter-spacing:-.01em}
+h1{margin:.8rem 0 .5rem;font-size:2.3rem;font-weight:760;line-height:1.15}
+h2{margin-top:2.5rem;padding-bottom:.3rem;border-bottom:1px solid var(--line);font-weight:700}
+h3{margin:2rem 0 .3rem;font-weight:700} p,li{max-width:50rem} .muted{color:var(--muted);font-size:.9rem}
+code,pre{font:.84rem/1.5 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+background:var(--code);border-radius:8px;font-variant-ligatures:none} code{padding:.1rem .3rem}
+pre{padding:.8rem 1rem;overflow-x:auto;margin:.4rem 0} pre code{padding:0;background:none}
 .scroll{overflow-x:auto;margin:.6rem 0} table{border-collapse:collapse;font-size:.92rem}
-th,td{border:1px solid var(--line);padding:.35rem .6rem;text-align:left;vertical-align:top}
+th,td{border:1px solid var(--strong);padding:.35rem .6rem;text-align:left;vertical-align:top}
 th{background:var(--head);font-weight:600;white-space:nowrap} td.num,th.num{text-align:right}
 td.cmd code{white-space:pre-wrap;overflow-wrap:anywhere;display:block;background:none;padding:0}
 .install td{min-width:8.5rem} .install td.cmd{min-width:32rem}
-nav{display:flex;flex-wrap:wrap;gap:.2rem .9rem}
+main nav{display:flex;flex-wrap:wrap;gap:.2rem .9rem}
+.foot{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem}
+.foot>div{padding-top:1rem;padding-bottom:2rem}
 """
 
 
@@ -413,9 +428,18 @@ def render_html(
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>clang-tools static binaries</title>
+<title>clang-tools static binaries - cpp-linter</title>
 <meta name="description" content="Static clang-format, clang-tidy and other LLVM tools for LLVM {esc(oldest)} to {esc(latest)} on Linux, macOS and Windows.">
+<link rel="icon" href="https://cpp-linter.github.io/static/favicon.ico">
+<link rel="stylesheet" href="https://cpp-linter.github.io/stylesheets/shared.css">
 <style>{PAGE_CSS}</style></head><body>
+<header class="top"><div>
+<a class="brand" href="https://cpp-linter.github.io/"><img src="https://cpp-linter.github.io/static/logo.png" alt="" width="30" height="30">cpp-linter</a>
+<nav><a href="https://cpp-linter.github.io/getting-started/">Get started</a>
+<a href="https://cpp-linter.github.io/blog/">Blog</a>
+<a href="https://github.com/{esc(repo)}">GitHub</a></nav>
+</div></header>
+<main>
 <h1>clang-tools static binaries</h1>
 <p>Static builds of clang-format, clang-tidy and other LLVM tools, for LLVM {esc(oldest)}
 to {esc(latest)} on Linux, macOS and Windows, on x86-64 and ARM64. Each file is a
@@ -444,6 +468,8 @@ gh attestation verify {esc(first["name"])} --repo {esc(repo)}</code></pre>
 <p class="muted">Sizes link to the files. Windows files end in <code>.exe</code>.</p>
 {"".join(sections)}
 
-<p class="muted">Generated {esc(index["generated_at"])}.</p>
+</main>
+<footer class="foot"><div>Part of <a href="https://cpp-linter.github.io/">cpp-linter</a>.
+Generated {esc(index["generated_at"])}.</div></footer>
 </body></html>
 """
