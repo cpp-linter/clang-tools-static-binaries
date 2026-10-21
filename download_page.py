@@ -18,11 +18,14 @@ import json
 import subprocess
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 USER_AGENT = (
     "clang-tools-static-binaries"
     " (+https://github.com/cpp-linter/clang-tools-static-binaries)"
 )
+# The page's styles, inlined so that index.html is one file.
+PAGE_CSS = Path(__file__).with_name("download_page.css").read_text(encoding="utf-8")
 
 
 def fetch_json(url: str, *, missing_ok: bool = False) -> dict | None:
@@ -154,44 +157,6 @@ def _newest_major(versions: dict[str, str] | None, at_most: str) -> str | None:
     """The newest major in *versions* not above *at_most*, or None if unknown."""
     majors = [int(m) for m in versions or {} if int(m) <= int(at_most)]
     return str(max(majors)) if majors else None
-
-
-# The look of https://cpp-linter.github.io: its fonts come from the site's
-# shared.css (same origin as this page), and the colors repeat that file's paper,
-# ink and indigo tokens for the light and dark schemes.
-PAGE_CSS = """
-:root{color-scheme:light dark;--bg:#f7f5ef;--fg:#171a2e;--muted:#62677f;--line:#e3dfd3;
---strong:#d8d3c4;--code:#eeeae0;--link:#4051b5;--head:#efece4}
-@media (prefers-color-scheme:dark){:root{--bg:#16182a;--fg:#ece9e1;--muted:#9b9eb3;
---line:#2b2e45;--strong:#34385a;--code:#1f2237;--link:#8e9cf5;--head:#1f2237}}
-*{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);margin:0;
-font:16px/1.55 "Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
-.top{border-bottom:1px solid var(--line)}
-.top>div,main,.foot>div{max-width:72rem;margin:0 auto;padding-left:1rem;padding-right:1rem}
-.top>div{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.5rem;padding-top:.6rem;padding-bottom:.6rem}
-.brand{display:flex;align-items:center;gap:.55rem;color:var(--fg);text-decoration:none;
-font:700 1.15rem "Bricolage Grotesque","Instrument Sans",system-ui,sans-serif}
-.top nav{display:flex;flex-wrap:wrap;gap:.2rem 1.2rem}
-.top nav a{color:var(--muted);text-decoration:none;font-weight:600} .top nav a:hover{color:var(--fg)}
-main{padding-top:1.2rem;padding-bottom:2rem}
-a{color:var(--link)} a:hover{color:var(--fg)}
-h1,h2,h3{font-family:"Bricolage Grotesque","Instrument Sans",system-ui,sans-serif;letter-spacing:-.01em}
-h1{margin:.8rem 0 .5rem;font-size:2.3rem;font-weight:760;line-height:1.15}
-h2{margin-top:2.5rem;padding-bottom:.3rem;border-bottom:1px solid var(--line);font-weight:700}
-h3{margin:2rem 0 .3rem;font-weight:700} p,li{max-width:50rem} .muted{color:var(--muted);font-size:.9rem}
-code,pre{font:.84rem/1.5 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-background:var(--code);border-radius:8px;font-variant-ligatures:none} code{padding:.1rem .3rem}
-pre{padding:.8rem 1rem;overflow-x:auto;margin:.4rem 0} pre code{padding:0;background:none}
-.scroll{overflow-x:auto;margin:.6rem 0} table{border-collapse:collapse;font-size:.92rem}
-th,td{border:1px solid var(--strong);padding:.35rem .6rem;text-align:left;vertical-align:top}
-th{background:var(--head);font-weight:600;white-space:nowrap} td.num,th.num{text-align:right}
-td.cmd code{white-space:pre-wrap;overflow-wrap:anywhere;display:block;background:none;padding:0}
-.install td{min-width:8.5rem} .install td.cmd{min-width:32rem}
-main nav{display:flex;flex-wrap:wrap;gap:.2rem .9rem}
-.foot{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem}
-.foot>div{padding-top:1rem;padding-bottom:2rem}
-"""
 
 
 def render_html(
