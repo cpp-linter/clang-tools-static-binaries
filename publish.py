@@ -643,11 +643,12 @@ def cmd_version(args: argparse.Namespace) -> None:
         if args.run_url:
             how += f" by {args.run_url}"
     notes = version_notes(version, source, how, built=True)
-    # build.yml attests every file before it runs this command.
+    # build.yml attests every file but SHA512SUMS (written here) before it
+    # runs this command.
     repo = os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPO)
     notes += (
-        "\nEvery file has a build provenance attestation. Check which "
-        "workflow run and commit built a file with "
+        "\nEvery file except SHA512SUMS has a build provenance attestation. "
+        "Check which workflow run and commit built a file with "
         f"`gh attestation verify <file> --repo {repo}`.\n"
     )
     create_release(
