@@ -18,11 +18,14 @@ import json
 import subprocess
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 USER_AGENT = (
     "clang-tools-static-binaries"
     " (+https://github.com/cpp-linter/clang-tools-static-binaries)"
 )
+# The page's styles, inlined so that index.html is one file.
+PAGE_CSS = Path(__file__).with_name("download_page.css").read_text(encoding="utf-8")
 
 
 def fetch_json(url: str, *, missing_ok: bool = False) -> dict | None:
@@ -154,29 +157,6 @@ def _newest_major(versions: dict[str, str] | None, at_most: str) -> str | None:
     """The newest major in *versions* not above *at_most*, or None if unknown."""
     majors = [int(m) for m in versions or {} if int(m) <= int(at_most)]
     return str(max(majors)) if majors else None
-
-
-PAGE_CSS = """
-:root{color-scheme:light dark;--bg:#fff;--fg:#1f2328;--muted:#59636e;--line:#d1d9e0;
---code:#f6f8fa;--link:#0969da;--head:#f6f8fa}
-@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#9198a1;
---line:#3d444d;--code:#151b23;--link:#4493f8;--head:#151b23}}
-*{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
-max-width:72rem;margin:0 auto;padding:1.5rem 1rem 3rem}
-a{color:var(--link)} h1{margin:.2rem 0 .5rem;font-size:1.8rem}
-h2{margin-top:2.5rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
-h3{margin:2rem 0 .3rem} p,li{max-width:50rem} .muted{color:var(--muted);font-size:.9rem}
-code,pre{font:.85rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);
-border-radius:6px} code{padding:.1rem .3rem} pre{padding:.7rem 1rem;overflow-x:auto;margin:.4rem 0}
-pre code{padding:0;background:none}
-.scroll{overflow-x:auto;margin:.6rem 0} table{border-collapse:collapse;font-size:.92rem}
-th,td{border:1px solid var(--line);padding:.35rem .6rem;text-align:left;vertical-align:top}
-th{background:var(--head);font-weight:600;white-space:nowrap} td.num,th.num{text-align:right}
-td.cmd code{white-space:pre-wrap;overflow-wrap:anywhere;display:block;background:none;padding:0}
-.install td{min-width:8.5rem} .install td.cmd{min-width:32rem}
-nav{display:flex;flex-wrap:wrap;gap:.2rem .9rem}
-"""
 
 
 def render_html(
@@ -413,9 +393,18 @@ def render_html(
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>clang-tools static binaries</title>
+<title>clang-tools static binaries - cpp-linter</title>
 <meta name="description" content="Static clang-format, clang-tidy and other LLVM tools for LLVM {esc(oldest)} to {esc(latest)} on Linux, macOS and Windows.">
+<link rel="icon" href="https://cpp-linter.github.io/static/favicon.ico">
+<link rel="stylesheet" href="https://cpp-linter.github.io/stylesheets/shared.css">
 <style>{PAGE_CSS}</style></head><body>
+<header class="top"><div>
+<a class="brand" href="https://cpp-linter.github.io/"><img src="https://cpp-linter.github.io/static/logo.png" alt="" width="30" height="30">cpp-linter</a>
+<nav><a href="https://cpp-linter.github.io/getting-started/">Get started</a>
+<a href="https://cpp-linter.github.io/blog/">Blog</a>
+<a href="https://github.com/{esc(repo)}">GitHub</a></nav>
+</div></header>
+<main>
 <h1>clang-tools static binaries</h1>
 <p>Static builds of clang-format, clang-tidy and other LLVM tools, for LLVM {esc(oldest)}
 to {esc(latest)} on Linux, macOS and Windows, on x86-64 and ARM64. Each file is a
@@ -444,6 +433,8 @@ gh attestation verify {esc(first["name"])} --repo {esc(repo)}</code></pre>
 <p class="muted">Sizes link to the files. Windows files end in <code>.exe</code>.</p>
 {"".join(sections)}
 
-<p class="muted">Generated {esc(index["generated_at"])}.</p>
+</main>
+<footer class="foot"><div>Part of <a href="https://cpp-linter.github.io/">cpp-linter</a>.
+Generated {esc(index["generated_at"])}.</div></footer>
 </body></html>
 """
