@@ -51,6 +51,21 @@ def _load_releases() -> dict[str, str]:
 
 RELEASES: dict[str, str] = _load_releases()
 
+
+def _load_source_hashes() -> dict[str, str]:
+    """Load the expected sha256 of each source tarball from sources.sha256."""
+    path = Path(__file__).parent / "sources.sha256"
+    hashes = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            digest, name = line.split()
+            hashes[name.lstrip("*")] = digest.lower()
+    return hashes
+
+
+# Tarball name -> sha256, e.g. "llvm-project-23.1.3.src.tar.xz" -> "c441..."
+SOURCE_SHA256: dict[str, str] = _load_source_hashes()
+
 TOOLS = [
     "clang-format",
     "clang-query",
@@ -345,6 +360,23 @@ def download_file(url: str, dest: Path) -> None:
         raise
 
 
+def verify_source(tarball: Path) -> None:
+    """Fail unless *tarball* has the sha256 listed in sources.sha256."""
+    expected = SOURCE_SHA256.get(tarball.name)
+    if expected is None:
+        raise SystemExit(
+            f"{tarball.name} is not listed in sources.sha256. "
+            "See CONTRIBUTING.md to add it."
+        )
+    actual = sha256_file(tarball)
+    if actual != expected:
+        raise SystemExit(
+            f"{tarball.name} does not match sources.sha256: expected sha256 "
+            f"{expected}, got {actual}. Delete the file to download it again."
+        )
+    print(f"{tarball.name}: sha256 matches sources.sha256")
+
+
 def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> None:
     """Extract *tarball*, skipping paths listed in *extra_excludes*."""
     release_dir = Path(release)
@@ -361,7 +393,9 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
             skip = any(member.name.startswith(excl.rstrip("*")) for excl in excludes)
             if not skip:
                 members.append(member)
-        tf.extractall(path=".", members=members)
+        # "data" refuses absolute paths, links that leave the target folder,
+        # and device files.
+        tf.extractall(path=".", members=members, filter="data")
 
 
 def patch_cmake_implicit_link_macos() -> None:
@@ -637,6 +671,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         f"llvmorg-{ver_tag}/{release}.tar.xz"
     )
     download_file(url, tarball)
+    verify_source(tarball)
 
     # ------------------------------------------------------------------
     # 2. Unpack

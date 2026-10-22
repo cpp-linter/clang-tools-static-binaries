@@ -17,7 +17,7 @@ Before CI publishes a version, `acceptance.py` installs the binaries of every pl
 
 ## Ways to Contribute
 
-- **Add a new clang version** — Add the version-to-tarball mapping to `releases.json`. The CI matrix is generated automatically from this file.
+- **Add a new clang version** — Add the version-to-tarball mapping to `releases.json` and the tarball's sha256 to `sources.sha256`. The CI matrix is generated automatically from `releases.json`.
 - **Fix a build** — Look for failures in the [Build](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml) workflow.
 - **Improve documentation** — Clarify README, add platform notes, etc.
 
@@ -31,11 +31,30 @@ Before CI publishes a version, `acceptance.py` installs the binaries of every pl
 
 `build.py` and the CI plan in `publish.py` read from this file.
 
+## `sources.sha256`
+
+[`sources.sha256`](sources.sha256) lists the sha256 of every source tarball in
+`releases.json`, in the format `sha256sum` writes. `build.py` refuses to build
+from a tarball that is missing from this file or does not match it, and the CI
+plan fails when a version in `releases.json` has no entry.
+
 ### Adding a new LLVM version
 
 1. Add an entry to `releases.json` in descending order (newest first).
-2. Open a PR. CI builds the new or changed entries on all platforms.
-3. Always test at least one platform locally before opening the PR.
+2. Download the tarball and its signature from the LLVM release, check the
+   signature, and add the tarball's sha256 line at the top of `sources.sha256`:
+
+   ```sh
+   v=24.1.0
+   base=https://github.com/llvm/llvm-project/releases/download/llvmorg-$v
+   curl -LO $base/llvm-project-$v.src.tar.xz -LO $base/llvm-project-$v.src.tar.xz.sig
+   curl -L https://releases.llvm.org/release-keys.asc | gpg --import
+   gpg --verify llvm-project-$v.src.tar.xz.sig llvm-project-$v.src.tar.xz
+   sha256sum llvm-project-$v.src.tar.xz  # on macOS: shasum -a 256
+   ```
+
+3. Open a PR. CI builds the new or changed entries on all platforms.
+4. Always test at least one platform locally before opening the PR.
 
 After the PR is merged, CI publishes each new version in its own release (for
 example `llvm-24.1.0`) and updates `index.json` on GitHub Pages. Versions that

@@ -435,6 +435,15 @@ def version_notes(version: str, source: str, how: str, *, built: bool = False) -
 
 def cmd_plan(args: argparse.Namespace) -> None:
     releases = build.RELEASES
+    unpinned = [
+        source
+        for source in releases.values()
+        if f"{source}.tar.xz" not in build.SOURCE_SHA256
+    ]
+    if unpinned:
+        raise ValueError(
+            f"Not in sources.sha256: {', '.join(unpinned)}. See CONTRIBUTING.md."
+        )
     rebuild = args.rebuild.replace(",", " ").split()
     if args.event == "pull_request":
         base = json.loads(Path(args.base_releases).read_text(encoding="utf-8"))
