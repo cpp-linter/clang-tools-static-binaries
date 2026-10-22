@@ -13,6 +13,8 @@ python build.py --help  # see all options
 
 The script mirrors exactly what CI does: download LLVM source → configure with CMake → build → smoke-test → rename and checksum.
 
+Before CI publishes a version, `acceptance.py` installs the binaries of every platform with clang's headers and runs them on test code. Run it on a local build with `python acceptance.py --version 18 --files <the release folder>`.
+
 ## Ways to Contribute
 
 - **Add a new clang version** — Add the version-to-tarball mapping to `releases.json`. The CI matrix is generated automatically from this file.
@@ -43,8 +45,8 @@ with the versions to rebuild, for example `22 23`. Each rebuilt version gets a
 new revision (`llvm-22.1.8-2`). If a version fails to build, the other
 versions are still published, and `index.json` keeps the previous release of
 that LLVM major until the build is fixed. On pull requests that change
-`build.py`, a patch or the workflow, CI builds the newest and the oldest
-version to check the change. Changing only action versions (`uses:` lines) in
+`build.py`, `acceptance.py`, a patch or the workflow, CI builds the newest and
+the oldest version to check the change. Changing only action versions (`uses:` lines) in
 the workflow does not trigger these builds.
 
 ### Version retirement policy
