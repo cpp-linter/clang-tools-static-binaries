@@ -377,6 +377,28 @@ def verify_source(tarball: Path) -> None:
     print(f"{tarball.name}: sha256 matches sources.sha256")
 
 
+def unsafe_member(member: tarfile.TarInfo, dest: str) -> str | None:
+    """Return why *member* must not be extracted into *dest*, or None.
+
+    tarfile's "data" filter checks the same things, but the Python 3.10 of
+    Ubuntu 22.04 resolves relative symlinks against *dest* instead of the
+    link's folder, so it rejects links in LLVM's test inputs that stay inside.
+    """
+    inside = dest + os.sep
+    path = os.path.normpath(os.path.join(dest, member.name))
+    if os.path.isabs(member.name) or not path.startswith(inside):
+        return "its path is outside the target folder"
+    if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
+        return "it is not a file, folder or link"
+    if member.issym() or member.islnk():
+        # A symlink is relative to its own folder, a hard link to the archive root.
+        base = os.path.dirname(path) if member.issym() else dest
+        target = os.path.normpath(os.path.join(base, member.linkname))
+        if os.path.isabs(member.linkname) or not target.startswith(inside):
+            return f"it links to {member.linkname}, outside the target folder"
+    return None
+
+
 def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> None:
     """Extract *tarball*, skipping paths listed in *extra_excludes*."""
     release_dir = Path(release)
@@ -387,15 +409,21 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
     # Build a set of path prefixes to skip
     excludes = set(extra_excludes)
 
+    dest = os.path.abspath(".")
     with tarfile.open(tarball, "r:xz") as tf:
         members = []
         for member in tf.getmembers():
             skip = any(member.name.startswith(excl.rstrip("*")) for excl in excludes)
-            if not skip:
-                members.append(member)
-        # "data" refuses absolute paths, links that leave the target folder,
-        # and device files.
-        tf.extractall(path=".", members=members, filter="data")
+            if skip:
+                continue
+            reason = unsafe_member(member, dest)
+            if reason:
+                raise SystemExit(
+                    f"Refusing to unpack {tarball.name}: {member.name}: {reason}"
+                )
+            members.append(member)
+        # Every member was checked above.
+        tf.extractall(path=dest, members=members, filter="fully_trusted")
 
 
 def patch_cmake_implicit_link_macos() -> None:
