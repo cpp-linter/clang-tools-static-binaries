@@ -255,7 +255,7 @@ def render_html(
             "All tools listed under Files",
             "Linux, macOS, Windows; amd64, arm64",
             None,
-            "Pick a file under Files, or use one of the next three tools.",
+            "Pick a file under Files, or use one of the next four tools.",
         ),
         (
             '<a href="https://github.com/cpp-linter/clang-tools-pip">clang-tools</a> (pip)',
@@ -285,6 +285,17 @@ def render_html(
             "These binaries",
             "macOS",
             "brew install cpp-linter/tap/clang-format",
+            None,
+        ),
+        (
+            '<a href="https://github.com/cpp-linter/clang-tools-npm">npm packages</a>',
+            "cpp-linter",
+            "These clang-format and clang-tidy binaries",
+            "Linux, macOS, Windows; amd64, arm64",
+            (
+                "npm install --save-dev "
+                f"@cpp-linter/clang-format@{latest} @cpp-linter/clang-tidy@{latest}"
+            ),
             None,
         ),
         (

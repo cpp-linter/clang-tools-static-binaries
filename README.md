@@ -48,7 +48,7 @@ chmod +x clang-tools/bin/clang-tidy
 
 The archive is the same for every platform. A version whose current release was built before then has no `resource_headers` in `index.json` until it is rebuilt.
 
-[clang-tools](https://cpp-linter.github.io/clang-tools-pip/) (pip), the [asdf plugin](https://github.com/cpp-linter/asdf-clang-tools) and the [Homebrew tap](https://github.com/cpp-linter/homebrew-tap) (macOS, `brew install cpp-linter/tap/clang-format` for the newest version, `clang-format@22` for an older one) install these same binaries for you.
+[clang-tools](https://cpp-linter.github.io/clang-tools-pip/) (pip), the [npm packages](https://github.com/cpp-linter/clang-tools-npm) (`npm install --save-dev @cpp-linter/clang-tidy@23`, with the headers included), the [asdf plugin](https://github.com/cpp-linter/asdf-clang-tools) and the [Homebrew tap](https://github.com/cpp-linter/homebrew-tap) (macOS, `brew install cpp-linter/tap/clang-format` for the newest version, `clang-format@22` for an older one) install these same binaries for you.
 
 ## Supported versions
 
