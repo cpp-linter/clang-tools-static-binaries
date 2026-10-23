@@ -51,6 +51,21 @@ def _load_releases() -> dict[str, str]:
 
 RELEASES: dict[str, str] = _load_releases()
 
+
+def _load_source_hashes() -> dict[str, str]:
+    """Load the expected sha256 of each source tarball from sources.sha256."""
+    path = Path(__file__).parent / "sources.sha256"
+    hashes = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            digest, name = line.split()
+            hashes[name.lstrip("*")] = digest.lower()
+    return hashes
+
+
+# Tarball name -> sha256, e.g. "llvm-project-23.1.3.src.tar.xz" -> "c441..."
+SOURCE_SHA256: dict[str, str] = _load_source_hashes()
+
 TOOLS = [
     "clang-format",
     "clang-query",
@@ -345,6 +360,45 @@ def download_file(url: str, dest: Path) -> None:
         raise
 
 
+def verify_source(tarball: Path) -> None:
+    """Fail unless *tarball* has the sha256 listed in sources.sha256."""
+    expected = SOURCE_SHA256.get(tarball.name)
+    if expected is None:
+        raise SystemExit(
+            f"{tarball.name} is not listed in sources.sha256. "
+            "See CONTRIBUTING.md to add it."
+        )
+    actual = sha256_file(tarball)
+    if actual != expected:
+        raise SystemExit(
+            f"{tarball.name} does not match sources.sha256: expected sha256 "
+            f"{expected}, got {actual}. Delete the file to download it again."
+        )
+    print(f"{tarball.name}: sha256 matches sources.sha256")
+
+
+def unsafe_member(member: tarfile.TarInfo, dest: str) -> str | None:
+    """Return why *member* must not be extracted into *dest*, or None.
+
+    tarfile's "data" filter checks the same things, but the Python 3.10 of
+    Ubuntu 22.04 resolves relative symlinks against *dest* instead of the
+    link's folder, so it rejects links in LLVM's test inputs that stay inside.
+    """
+    inside = dest + os.sep
+    path = os.path.normpath(os.path.join(dest, member.name))
+    if os.path.isabs(member.name) or not path.startswith(inside):
+        return "its path is outside the target folder"
+    if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
+        return "it is not a file, folder or link"
+    if member.issym() or member.islnk():
+        # A symlink is relative to its own folder, a hard link to the archive root.
+        base = os.path.dirname(path) if member.issym() else dest
+        target = os.path.normpath(os.path.join(base, member.linkname))
+        if os.path.isabs(member.linkname) or not target.startswith(inside):
+            return f"it links to {member.linkname}, outside the target folder"
+    return None
+
+
 def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> None:
     """Extract *tarball*, skipping paths listed in *extra_excludes*."""
     release_dir = Path(release)
@@ -355,13 +409,21 @@ def unpack_tarball(tarball: Path, release: str, extra_excludes: list[str]) -> No
     # Build a set of path prefixes to skip
     excludes = set(extra_excludes)
 
+    dest = os.path.abspath(".")
     with tarfile.open(tarball, "r:xz") as tf:
         members = []
         for member in tf.getmembers():
             skip = any(member.name.startswith(excl.rstrip("*")) for excl in excludes)
-            if not skip:
-                members.append(member)
-        tf.extractall(path=".", members=members)
+            if skip:
+                continue
+            reason = unsafe_member(member, dest)
+            if reason:
+                raise SystemExit(
+                    f"Refusing to unpack {tarball.name}: {member.name}: {reason}"
+                )
+            members.append(member)
+        # Every member was checked above.
+        tf.extractall(path=dest, members=members, filter="fully_trusted")
 
 
 def patch_cmake_implicit_link_macos() -> None:
@@ -637,6 +699,7 @@ def build(version: str, target_platform: str, script_dir: Path) -> None:
         f"llvmorg-{ver_tag}/{release}.tar.xz"
     )
     download_file(url, tarball)
+    verify_source(tarball)
 
     # ------------------------------------------------------------------
     # 2. Unpack

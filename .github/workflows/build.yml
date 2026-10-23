@@ -11,6 +11,7 @@ on:
       - "download_page.py"
       - "download_page.css"
       - "releases.json"
+      - "sources.sha256"
       - "*.patch"
   pull_request:
     branches: [ master ]
@@ -22,6 +23,7 @@ on:
       - "download_page.py"
       - "download_page.css"
       - "releases.json"
+      - "sources.sha256"
       - "*.patch"
   workflow_dispatch:
     inputs:
