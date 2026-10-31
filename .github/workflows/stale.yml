@@ -10,4 +10,4 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
-    uses: cpp-linter/.github/.github/workflows/stale.yml@57768d850c8c0ff7f1595bbaaa1e2a280552e1d6 # main
+    uses: cpp-linter/.github/.github/workflows/stale.yml@main
