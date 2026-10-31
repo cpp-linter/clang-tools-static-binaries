@@ -51,7 +51,7 @@ PLATFORMS = [
     {"platform": "linux-amd64", "runner": "ubuntu-22.04"},
     {"platform": "linux-arm64", "runner": "ubuntu-22.04-arm"},
     {"platform": "macos-amd64", "runner": "macos-15-intel"},
-    {"platform": "macos-arm64", "runner": "macos-14"},
+    {"platform": "macos-arm64", "runner": "macos-15"},
     {"platform": "windows-amd64", "runner": "windows-latest"},
     {"platform": "windows-arm64", "runner": "windows-11-arm"},
 ]
