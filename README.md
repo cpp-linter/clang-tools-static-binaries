@@ -15,8 +15,8 @@ Every LLVM version has its own release, named after the LLVM release it was buil
 To download clang-format 23 for Linux x86-64, check it and run it:
 
 ```bash
-curl -fLO https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/llvm-23.1.3-2/clang-format-23_linux-amd64
-curl -fLO https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/llvm-23.1.3-2/SHA512SUMS
+curl -fLO https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/llvm-23.1.4/clang-format-23_linux-amd64
+curl -fLO https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/llvm-23.1.4/SHA512SUMS
 sha512sum -c SHA512SUMS --ignore-missing
 chmod +x clang-format-23_linux-amd64
 ./clang-format-23_linux-amd64 --version
@@ -70,16 +70,16 @@ Tools that download these binaries should read [`index.json`](https://cpp-linter
 {
   "schema_version": 1,
   "latest": "23",
-  "latest_version": "23.1.3",
+  "latest_version": "23.1.4",
   "versions": {
     "23": {
-      "version": "23.1.3",
-      "tag": "llvm-23.1.3-2",
+      "version": "23.1.4",
+      "tag": "llvm-23.1.4",
       "tools": {
         "clang-format": {
           "linux-amd64": {
             "name": "clang-format-23_linux-amd64",
-            "url": "https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/llvm-23.1.3-2/clang-format-23_linux-amd64",
+            "url": "https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/llvm-23.1.4/clang-format-23_linux-amd64",
             "size": 3145728,
             "sha512": "..."
           }
