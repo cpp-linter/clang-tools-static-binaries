@@ -50,6 +50,19 @@ The archive is the same for every platform. A version whose current release was 
 
 [clang-tools](https://cpp-linter.github.io/clang-tools-pip/) (pip), the [npm packages](https://github.com/cpp-linter/clang-tools-npm) (`npm install --save-dev @cpp-linter/clang-tidy@23`, with the headers included), the [asdf plugin](https://github.com/cpp-linter/asdf-clang-tools) and the [Homebrew tap](https://github.com/cpp-linter/homebrew-tap) (macOS, `brew install cpp-linter/tap/clang-format` for the newest version, `clang-format@22` for an older one) install these same binaries for you.
 
+### clang-tidy on macOS needs the SDK path
+
+On macOS the C and C++ standard headers (`ctype.h`, `string` and others) are in the Xcode or Command Line Tools SDK, and `/usr/include` does not exist. Apple's clang finds the SDK by itself. These binaries are built from upstream LLVM, which does not, so clang-tidy, clang-query and clang-include-cleaner stop with `'ctype.h' file not found` unless the compile command has `-isysroot`. Set `SDKROOT` before running them:
+
+```bash
+export SDKROOT="$(xcrun --show-sdk-path)"
+clang-tidy foo.c
+```
+
+Or pass the path to a single run with `clang-tidy --extra-arg=-isysroot"$(xcrun --show-sdk-path)" foo.c`. If the commands in `compile_commands.json` already have `-isysroot`, you need neither.
+
+The C++ headers in a recent SDK can use builtins that an older clang does not know, so check C++ code with a recent LLVM version. For example, with the SDK that comes with Apple clang 21, LLVM 16 stops on `__builtin_clzg` in `<string>`, while LLVM 23 works.
+
 ## Supported versions
 
 LLVM 12 to 23 are built for Linux, macOS and Windows on x86-64 and ARM64. Every version has clang-format, clang-tidy, clang-query, clang-apply-replacements, clang-scan-deps, llvm-cov, llvm-profdata and llvm-symbolizer; clang-include-cleaner is included from LLVM 18.
