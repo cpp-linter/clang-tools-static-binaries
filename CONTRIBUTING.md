@@ -40,6 +40,11 @@ plan fails when a version in `releases.json` has no entry.
 
 ### Adding a new LLVM version
 
+The [Monitor LLVM](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/monitor-llvm.yml)
+workflow does steps 1 and 2 every day: when LLVM has a newer release of a version in
+`releases.json`, or a new major version, it runs `update_llvm.py` and opens a pull request.
+The steps by hand:
+
 1. Add an entry to `releases.json` in descending order (newest first).
 2. Download the tarball and its signature from the LLVM release, check the
    signature, and add the tarball's sha256 line at the top of `sources.sha256`:

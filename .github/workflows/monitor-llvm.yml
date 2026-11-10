@@ -1,0 +1,56 @@
+name: Monitor LLVM
+
+# Looks for a newer LLVM release of every version in releases.json, and for
+# the next LLVM major. For each one it checks the source tarball's signature
+# and opens a pull request that adds it. See update_llvm.py.
+
+on:
+  schedule:
+    # Daily at 07:10 UTC
+    - cron: '10 7 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'cpp-linter'
+    permissions:
+      # push the update branch and open the pull request
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Look for new LLVM releases and verify their sources
+        id: update
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 update_llvm.py
+
+      - name: Create Pull Request
+        if: steps.update.outputs.versions != ''
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          sign-commits: true
+          commit-message: "feat: build LLVM ${{ steps.update.outputs.versions }}"
+          branch: auto-update-llvm
+          delete-branch: true
+          title: "feat: build LLVM ${{ steps.update.outputs.versions }}"
+          body: |
+            Automated update: LLVM ${{ steps.update.outputs.versions }} has been released.
+
+            - `releases.json` names the new source, and `sources.sha256` has its sha256.
+            - The sha256 is of the tarball from the LLVM release, after its signature was checked against LLVM's release keys (`update_llvm.py`).
+            - For a new patch release of the newest LLVM version, the README's examples name it too. A new LLVM major is not written into the README: update its examples and the supported versions by hand (new major in this pull request: ${{ steps.update.outputs.new-major }}).
+
+            GitHub does not start CI on a pull request that a workflow opened. Close and reopen
+            this pull request to build the new version on every platform before merging.
+          labels: |
+            automated
+          assignees: |
+            ${{ github.actor }}

@@ -31,6 +31,7 @@ subcommands that talk to GitHub.
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -38,6 +39,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 from datetime import UTC, datetime
@@ -285,14 +287,34 @@ def expected_files(version: str) -> set[str]:
     return names
 
 
+def bundle_name(version: str, platform_name: str) -> str:
+    """Name of the archive with everything of *version* for one platform."""
+    return f"clang-tools-{version}_{platform_name}.tar.gz"
+
+
+def bundle_names(version: str) -> set[str]:
+    return {bundle_name(version, platform_name) for platform_name in PLATFORM_NAMES}
+
+
+def prepared_files(version: str) -> set[str]:
+    """Files that `prepare` writes in the publish job, from the build
+    artifacts: no build has their checksum."""
+    return {BUILDINFO_FILE} | bundle_names(version)
+
+
 def common_files(version: str) -> set[str]:
     """Files besides the binaries that every newly built release has.
 
-    clang's builtin headers and LLVM's license are the same for every
-    platform; BUILDINFO.json describes the builds of all platforms. Releases
-    copied out of SEED_FROM do not have them.
+    clang's builtin headers, the helper scripts and LLVM's license are the
+    same for every platform; BUILDINFO.json describes the builds of all
+    platforms; each bundle holds all of this for one platform. Older releases
+    do not have all of them.
     """
-    return {build.resource_headers_name(version), build.LICENSE_FILE, BUILDINFO_FILE}
+    return {
+        build.resource_headers_name(version),
+        build.scripts_name(version),
+        build.LICENSE_FILE,
+    } | prepared_files(version)
 
 
 def select_files(
@@ -415,6 +437,20 @@ def version_notes(version: str, source: str, how: str, *, built: bool = False) -
             ),
             "",
             (
+                f"`{build.scripts_name(version)}` holds `run-clang-tidy`, "
+                "`clang-tidy-diff.py`, `clang-format-diff.py` and "
+                "`git-clang-format` from the same LLVM release. It unpacks to "
+                "`bin/`, next to the headers' `lib/`. The scripts need Python 3."
+            ),
+            "",
+            (
+                f"`clang-tools-{version}_<platform>.tar.gz` holds everything for "
+                "one platform in the layout of an LLVM installation: the tools "
+                "under their plain names and the scripts in `bin/`, the headers "
+                "in `lib/clang/`, and the license."
+            ),
+            "",
+            (
                 f"`{build.LICENSE_FILE}` is LLVM's license. `{BUILDINFO_FILE}` "
                 "records how each platform was built: source and its SHA-256, "
                 "patches, CMake options, compiler and runner image."
@@ -529,9 +565,9 @@ def collect_files(
     for sums_file in artifacts.rglob("SHA512SUMS"):
         sums.update(read_sums(sums_file))
     files = select_files(version, artifacts.rglob("*"), extra)
-    if BUILDINFO_FILE in files:
+    for name in prepared_files(version) & set(files):
         # Written by `prepare` in the publish job, so no build has its sum.
-        sums[BUILDINFO_FILE] = sha512(files[BUILDINFO_FILE])
+        sums[name] = sha512(files[name])
     check_files(version, files, sums, extra)
     return files, sums
 
@@ -584,6 +620,7 @@ def merge_buildinfo(
             "name": build.resource_headers_name(version),
             "built_on": build.COMMON_FILES_PLATFORM,
         },
+        "scripts": build.scripts_name(version),
         "license": build.LICENSE_FILE,
         "platforms": {
             p: {k: v for k, v in platforms[p].items() if k not in drop}
@@ -611,11 +648,57 @@ def check_acceptance(version: str, accepted: Path) -> None:
         )
 
 
+def write_bundle(
+    version: str, platform_name: str, files: dict[str, Path], archive: Path
+) -> None:
+    """Write everything of *version* for *platform_name* to *archive*.
+
+    The archive unpacks to one directory, named like the archive, with the
+    layout of an LLVM installation: ``bin/`` holds the tools under their plain
+    names (``clang-tidy``, not ``clang-tidy-23_linux-amd64``) and the helper
+    scripts, ``lib/clang/<version>/include`` holds clang's builtin headers,
+    and ``LICENSE.TXT`` is LLVM's license. Owners and times are fixed, so the
+    same files always give the same bytes.
+    """
+    root = archive.name[: -len(".tar.gz")]
+    exe = ".exe" if platform_name.startswith("windows") else ""
+
+    def add(tar: tarfile.TarFile, path: Path, name: str, mode: int) -> None:
+        info = tarfile.TarInfo(f"{root}/{name}")
+        info.size = path.stat().st_size
+        info.mode = mode
+        with open(path, "rb") as fh:
+            tar.addfile(info, fh)
+
+    with (
+        open(archive, "wb") as raw,
+        gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz,
+        tarfile.open(fileobj=gz, mode="w", format=tarfile.GNU_FORMAT) as tar,
+    ):
+        for tool in build.active_tools(version):
+            add(
+                tar,
+                files[f"{tool}-{version}_{platform_name}{exe}"],
+                f"bin/{tool}{exe}",
+                0o755,
+            )
+        # Both archives already hold paths relative to the installation
+        # directory (bin/..., lib/clang/...), with fixed owners and times.
+        for name in (build.scripts_name(version), build.resource_headers_name(version)):
+            with tarfile.open(files[name]) as inner:
+                for member in inner:
+                    member.name = f"{root}/{member.name}"
+                    tar.addfile(
+                        member, inner.extractfile(member) if member.isfile() else None
+                    )
+        add(tar, files[build.LICENSE_FILE], build.LICENSE_FILE, 0o644)
+
+
 def cmd_prepare(args: argparse.Namespace) -> None:
     version, tag = args.version, args.tag
     artifacts = Path(args.artifacts)
     common = common_files(version)
-    collect_files(version, artifacts, common - {BUILDINFO_FILE})
+    built, _ = collect_files(version, artifacts, common - prepared_files(version))
     info = merge_buildinfo(
         version,
         tag,
@@ -628,6 +711,10 @@ def cmd_prepare(args: argparse.Namespace) -> None:
         json.dumps(info, indent=2) + "\n", encoding="utf-8"
     )
     check_acceptance(version, Path(args.accepted))
+    for platform_name in PLATFORM_NAMES:
+        name = bundle_name(version, platform_name)
+        write_bundle(version, platform_name, built, artifacts / name)
+        print(f"Wrote {name}")
     files, _ = collect_files(version, artifacts, common)
     # The input of actions/attest-build-provenance: every file the release
     # will have, in `sha256sum` format.
@@ -732,11 +819,62 @@ def release_sums(tag: str) -> dict[str, str]:
         return read_sums(Path(tmp) / "SHA512SUMS")
 
 
+def older_releases(
+    version: str, tag: str, published: set[str] | frozenset[str], repo: str
+) -> list[dict[str, str]]:
+    """Releases of earlier LLVM patch versions of major *version*, newest first.
+
+    ``index.json`` lists the files of one release per major. A project that
+    pins a full version, such as 21.1.0, finds its release here: the files
+    have the same names as in the current release, and SHA512SUMS has their
+    checksums. Each patch version appears once, with its newest build.
+    """
+    current = tag_source(tag)
+    newest: dict[tuple[int, ...], tuple[int, str]] = {}
+    for other in published:
+        match = re.fullmatch(
+            rf"llvm-({re.escape(version)}(?:\.\d+)+)(?:-(\d+))?", other
+        )
+        if not match or tag_source(other) == current:
+            continue
+        key = tuple(int(x) for x in match.group(1).split("."))
+        revision = int(match.group(2) or 1)
+        if key not in newest or revision > newest[key][0]:
+            newest[key] = (revision, other)
+    return [
+        {
+            "version": ".".join(str(x) for x in key),
+            "tag": other,
+            "release_url": f"https://github.com/{repo}/releases/tag/{other}",
+            "sha512sums_url": (
+                f"https://github.com/{repo}/releases/download/{other}/SHA512SUMS"
+            ),
+        }
+        for key, (_, other) in sorted(newest.items(), reverse=True)
+    ]
+
+
+def asset_entry(
+    assets: dict[str, dict], sums: dict[str, str], name: str
+) -> dict | None:
+    """The index entry of file *name* of a release, or None if it has none."""
+    asset = assets.get(name)
+    if asset is None or name not in sums:
+        return None
+    return {
+        "name": name,
+        "url": asset["url"],
+        "size": asset["size"],
+        "sha512": sums[name],
+    }
+
+
 def build_index(
     tags: dict[str, str],
     assets: dict[str, dict[str, dict]],
     sums: dict[str, dict[str, str]],
     repo: str,
+    published: set[str] | frozenset[str] = frozenset(),
 ) -> dict:
     """The index downstream tools read: every file of every supported version."""
     versions = {}
@@ -767,17 +905,23 @@ def build_index(
         # Only in releases built since these files were added.
         for key, name in (
             ("resource_headers", build.resource_headers_name(version)),
+            ("scripts", build.scripts_name(version)),
             ("license", build.LICENSE_FILE),
             ("buildinfo", BUILDINFO_FILE),
         ):
-            asset = assets[tag].get(name)
-            if asset is not None and name in sums[tag]:
-                versions[version][key] = {
-                    "name": name,
-                    "url": asset["url"],
-                    "size": asset["size"],
-                    "sha512": sums[tag][name],
-                }
+            if (found := asset_entry(assets[tag], sums[tag], name)) is not None:
+                versions[version][key] = found
+        bundles = {
+            platform_name: asset_entry(
+                assets[tag], sums[tag], bundle_name(version, platform_name)
+            )
+            for platform_name in PLATFORM_NAMES
+        }
+        if all(bundles.values()):
+            versions[version]["bundles"] = bundles
+        older = older_releases(version, tag, published, repo)
+        if older:
+            versions[version]["older_releases"] = older
     tools_info: dict[str, dict] = {}
     for tool in build.TOOLS:
         info: dict[str, int] = {}
@@ -809,7 +953,7 @@ def cmd_index(args: argparse.Namespace) -> None:
         raise SystemExit("No version has a published release.")
     assets = {tag: release_assets(tag) for tag in tags.values()}
     sums = {tag: release_sums(tag) for tag in tags.values()}
-    index = build_index(tags, assets, sums, repo)
+    index = build_index(tags, assets, sums, repo, published)
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     (out / "index.json").write_text(

@@ -142,6 +142,33 @@ def unpack_headers(archive: Path, prefix: Path) -> None:
             tar.extractall(prefix)
 
 
+def unpack_scripts(archive: Path, prefix: Path) -> None:
+    """Unpack the helper scripts into *prefix*, refusing anything but them."""
+    expected = {f"bin/{name}" for name in build.SCRIPTS.values()}
+    with tarfile.open(archive, "r:gz") as tar:
+        for member in tar.getmembers():
+            if member.name not in expected or not member.isfile():
+                raise SystemExit(f"Unexpected entry in {archive.name}: {member.name}")
+        if hasattr(tarfile, "data_filter"):
+            tar.extractall(prefix, filter="data")
+        else:
+            tar.extractall(prefix)
+
+
+def check_scripts(prefix: Path, work: Path) -> Check:
+    """Every helper script starts with this Python and prints its help."""
+    check = Check("scripts")
+    for name in sorted(build.SCRIPTS.values()):
+        script = prefix / "bin" / name
+        if not script.is_file():
+            check.fail(f"{name} is missing")
+            continue
+        result = run([sys.executable, str(script), "-h"], work)
+        if result.returncode != 0 or "usage" not in output_of(result).lower():
+            check.fail(f"{name} -h failed:\n{output_of(result)}")
+    return check
+
+
 def check_tidy(
     tools: dict[str, Path], work: Path, name: str, source: str, flags: list[str]
 ) -> Check:
@@ -286,6 +313,13 @@ def accept(
         )
     else:
         unpack_headers(headers, prefix)
+
+    scripts = find_file(build.scripts_name(version), files, tag, repo, work)
+    if scripts is None:
+        install.fail(f"{build.scripts_name(version)} is missing")
+    else:
+        unpack_scripts(scripts, prefix)
+        checks.append(check_scripts(prefix, work))
 
     if "clang-tidy" in tools:
         checks.append(
