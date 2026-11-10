@@ -156,14 +156,20 @@ def unpack_scripts(archive: Path, prefix: Path) -> None:
 
 
 def check_scripts(prefix: Path, work: Path) -> Check:
-    """Every helper script starts with this Python and prints its help."""
+    """Every helper script prints its help.
+
+    Outside Windows the script is started by itself, the way users start it,
+    so its first line has to name a Python that exists. Windows cannot start
+    a file without an extension, so there it is started with this Python.
+    """
     check = Check("scripts")
     for name in sorted(build.SCRIPTS.values()):
         script = prefix / "bin" / name
         if not script.is_file():
             check.fail(f"{name} is missing")
             continue
-        result = run([sys.executable, str(script), "-h"], work)
+        cmd = [str(script)] if os.name != "nt" else [sys.executable, str(script)]
+        result = run([*cmd, "-h"], work)
         if result.returncode != 0 or "usage" not in output_of(result).lower():
             check.fail(f"{name} -h failed:\n{output_of(result)}")
     return check

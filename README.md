@@ -73,7 +73,7 @@ Tool installers that expect one archive per platform, such as aqua and mise, can
 
 ### Helper scripts
 
-The same releases have `clang-tools-scripts-<LLVM major>.tar.gz` with `run-clang-tidy`, `clang-tidy-diff.py`, `clang-format-diff.py` and `git-clang-format` from the same LLVM release (`scripts` in `index.json`). Like the headers archive, it is the same for every platform and unpacks in the parent of the folder that holds the binaries, to `bin/`. The scripts need Python 3, and `git-clang-format` needs git.
+The same releases have `clang-tools-scripts-<LLVM major>.tar.gz` with `run-clang-tidy`, `clang-tidy-diff.py`, `clang-format-diff.py` and `git-clang-format` from the same LLVM release (`scripts` in `index.json`). Like the headers archive, it is the same for every platform and unpacks in the parent of the folder that holds the binaries, to `bin/`. The scripts need Python 3, and `git-clang-format` needs git. On Windows, start them with Python, such as `python bin\run-clang-tidy`. They look for the tools under their plain names (`clang-tidy`, `clang-format`), as in the [archive with everything](#everything-for-one-platform-in-one-archive); with the single binaries, name the tool, for example `run-clang-tidy -clang-tidy-binary ./clang-tidy-23_linux-amd64` or `git clang-format --binary ./clang-format-23_linux-amd64`.
 
 ### clang-tidy on macOS needs the SDK path
 
