@@ -28,6 +28,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import urllib.request
@@ -100,7 +101,8 @@ def fetch_json(url: str):
 
 def download(url: str, dest: Path) -> None:
     print(f"Downloading {url}", flush=True)
-    urllib.request.urlretrieve(url, dest)
+    with urllib.request.urlopen(url, timeout=60) as response, open(dest, "wb") as fh:
+        shutil.copyfileobj(response, fh)
 
 
 def verified_sha256(version: Version, work: Path, gnupg_home: Path) -> str:
@@ -127,7 +129,10 @@ def verified_sha256(version: Version, work: Path, gnupg_home: Path) -> str:
         capture_output=True,
         text=True,
     )
-    if result.returncode != 0 or "[GNUPG:] VALIDSIG" not in result.stdout:
+    status = result.stdout
+    # gpg exits with 0 and prints VALIDSIG for a signature of a revoked key too.
+    revoked = "[GNUPG:] REVKEYSIG" in status or "[GNUPG:] KEYREVOKED" in status
+    if result.returncode != 0 or "[GNUPG:] VALIDSIG" not in status or revoked:
         raise SystemExit(
             f"{name}: the signature does not verify against {RELEASE_KEYS_URL}.\n"
             f"{result.stdout}{result.stderr}"
@@ -166,10 +171,19 @@ def apply_updates(current: dict[str, str], hashes: dict[str, str]) -> dict[str, 
         if old_source is None:
             lines.insert(0, new_line)
         else:
-            lines = [
-                new_line if line.endswith(f"  {old_source}.tar.xz") else line
-                for line in lines
+            # The same parsing as build.py: "<sha256>  <name>", name may start with *.
+            old_name = f"{old_source}.tar.xz"
+            found = [
+                i
+                for i, line in enumerate(lines)
+                if line.split()[-1:] == [old_name]
+                or line.split()[-1:] == [f"*{old_name}"]
             ]
+            if len(found) != 1:
+                raise SystemExit(
+                    f"sources.sha256 has {len(found)} lines for {old_name}, expected 1."
+                )
+            lines[found[0]] = new_line
         releases[major] = f"llvm-project-{version}.src"
     releases = dict(
         sorted(releases.items(), key=lambda item: int(item[0]), reverse=True)
