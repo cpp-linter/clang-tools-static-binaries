@@ -390,12 +390,32 @@ def render_html(
         for tool, by_platform in info["tools"].items():
             cells = "".join(file_cell(by_platform.get(p)) for p in index["platforms"])
             tool_rows.append(f"<tr><th>{esc(tool)}</th>{cells}</tr>")
+        # One archive per platform with every tool, the scripts and the
+        # headers; only in releases built since it was added.
+        if "bundles" in info:
+            cells = "".join(
+                file_cell(info["bundles"].get(p)) for p in index["platforms"]
+            )
+            tool_rows.append(f"<tr><th>all in one archive</th>{cells}</tr>")
+        older = ""
+        if info.get("older_releases"):
+            older = (
+                '<p class="muted">Earlier releases of LLVM '
+                + esc(major)
+                + ": "
+                + ", ".join(
+                    f'<a href="{esc(r["release_url"])}">{esc(r["version"])}</a>'
+                    for r in info["older_releases"]
+                )
+                + "</p>"
+            )
         # Releases built since these files were added also have clang's
         # builtin headers, LLVM's license and the build details.
         extras = "".join(
             f' · <a href="{esc(info[key]["url"])}">{label}</a>'
             for key, label in (
                 ("resource_headers", "clang headers"),
+                ("scripts", "helper scripts"),
                 ("license", "LICENSE.TXT"),
                 ("buildinfo", "BUILDINFO.json"),
             )
@@ -407,7 +427,7 @@ def render_html(
             f"{esc(info['tag'])}</a> · "
             f'<a href="{esc(info["sha512sums_url"])}">SHA512SUMS</a>{extras}</p>'
             f'<div class="scroll"><table><thead><tr><th>Tool</th>{platform_head}</tr>'
-            f"</thead><tbody>{''.join(tool_rows)}</tbody></table></div>"
+            f"</thead><tbody>{''.join(tool_rows)}</tbody></table></div>{older}"
         )
 
     headers_note = ""

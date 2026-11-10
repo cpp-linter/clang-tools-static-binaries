@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
+import io
 import json
 import os
 import platform
@@ -121,6 +122,21 @@ RESOURCE_HEADERS_TARGET = "clang-resource-headers"
 def resource_headers_name(version: str) -> str:
     """``21`` -> ``clang-resource-headers-21.tar.gz``."""
     return f"clang-resource-headers-{version}.tar.gz"
+
+
+# The Python helper scripts of clang-tidy and clang-format, which LLVM's own
+# packages install next to the tools. Source path -> name in the archive.
+SCRIPTS = {
+    "clang-tools-extra/clang-tidy/tool/run-clang-tidy.py": "run-clang-tidy",
+    "clang-tools-extra/clang-tidy/tool/clang-tidy-diff.py": "clang-tidy-diff.py",
+    "clang/tools/clang-format/clang-format-diff.py": "clang-format-diff.py",
+    "clang/tools/clang-format/git-clang-format": "git-clang-format",
+}
+
+
+def scripts_name(version: str) -> str:
+    """Name of the archive that holds the helper scripts of LLVM *version*."""
+    return f"clang-tools-scripts-{version}.tar.gz"
 
 
 def buildinfo_name(suffix: str) -> str:
@@ -258,17 +274,43 @@ def pack_resource_headers(resource: Path, archive: Path) -> None:
     print(f"Packed {count} headers from {include} into {archive.name}")
 
 
+def pack_scripts(source: Path, archive: Path) -> None:
+    """Write the helper scripts (SCRIPTS) of the LLVM tree *source* to *archive*.
+
+    The archive holds ``bin/run-clang-tidy``, ``bin/git-clang-format`` and so
+    on: unpacked into the parent of the bin directory that holds the tools,
+    the scripts are next to them. They need Python 3, and git-clang-format
+    needs git. Owners, times and modes are fixed, like in
+    pack_resource_headers().
+    """
+    with (
+        open(archive, "wb") as raw,
+        gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz,
+        tarfile.open(fileobj=gz, mode="w", format=tarfile.GNU_FORMAT) as tar,
+    ):
+        for path, name in sorted(SCRIPTS.items(), key=lambda item: item[1]):
+            data = (source / path).read_bytes()
+            info = tarfile.TarInfo(f"bin/{name}")
+            info.size = len(data)
+            info.mode = 0o755
+            tar.addfile(info, io.BytesIO(data))
+    print(f"Packed {len(SCRIPTS)} scripts from {source} into {archive.name}")
+
+
 def write_common_files(version: str, release: str, build_dir: Path) -> Path:
     """Write the files shared by every platform to <release>/common/."""
     common = Path(release) / COMMON_DIR
     common.mkdir(parents=True, exist_ok=True)
     headers = common / resource_headers_name(version)
     pack_resource_headers(resource_dir(build_dir), headers)
+    scripts = common / scripts_name(version)
+    pack_scripts(Path(release), scripts)
     license_file = common / LICENSE_FILE
     license_file.write_bytes((Path(release) / "llvm" / LICENSE_FILE).read_bytes())
     with open(common / "SHA512SUMS", "w") as sums:
         sums.writelines(
-            f"{sha512_file(path)}  {path.name}\n" for path in (headers, license_file)
+            f"{sha512_file(path)}  {path.name}\n"
+            for path in (headers, scripts, license_file)
         )
     return common
 

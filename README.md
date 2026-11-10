@@ -50,6 +50,31 @@ The archive is the same for every platform. A version whose current release was 
 
 [clang-tools](https://cpp-linter.github.io/clang-tools-pip/) (pip), the [npm packages](https://github.com/cpp-linter/clang-tools-npm) (`npm install --save-dev @cpp-linter/clang-tidy@23`, with the headers included), the [asdf plugin](https://github.com/cpp-linter/asdf-clang-tools) and the [Homebrew tap](https://github.com/cpp-linter/homebrew-tap) (macOS, `brew install cpp-linter/tap/clang-format` for the newest version, `clang-format@22` for an older one) install these same binaries for you.
 
+### Everything for one platform in one archive
+
+Releases built since November 2026 also have `clang-tools-<LLVM major>_<platform>.tar.gz`: every tool, the helper scripts and clang's headers for one platform, in the layout of an LLVM installation. It unpacks to one folder:
+
+```text
+clang-tools-23_linux-amd64/
+  bin/clang-format, clang-tidy, ...     the tools under their plain names (.exe on Windows)
+  bin/run-clang-tidy, git-clang-format, clang-format-diff.py, clang-tidy-diff.py
+  lib/clang/23/include/                 clang's builtin headers
+  LICENSE.TXT
+```
+
+```bash
+index=https://cpp-linter.github.io/clang-tools-static-binaries/index.json
+curl -fsSL "$index" | jq -r '.versions["23"].bundles["linux-amd64"].url' \
+  | xargs curl -fL | tar -xz
+clang-tools-23_linux-amd64/bin/clang-tidy --version
+```
+
+Tool installers that expect one archive per platform, such as aqua and mise, can use these. A version whose current release was built before then has no `bundles` in `index.json` until it is rebuilt.
+
+### Helper scripts
+
+The same releases have `clang-tools-scripts-<LLVM major>.tar.gz` with `run-clang-tidy`, `clang-tidy-diff.py`, `clang-format-diff.py` and `git-clang-format` from the same LLVM release (`scripts` in `index.json`). Like the headers archive, it is the same for every platform and unpacks in the parent of the folder that holds the binaries, to `bin/`. The scripts need Python 3, and `git-clang-format` needs git.
+
 ### clang-tidy on macOS needs the SDK path
 
 On macOS the C and C++ standard headers (`ctype.h`, `string` and others) are in the Xcode or Command Line Tools SDK, and `/usr/include` does not exist. Apple's clang finds the SDK by itself. These binaries are built from upstream LLVM, which does not, so clang-tidy, clang-query and clang-include-cleaner stop with `'ctype.h' file not found` unless the compile command has `-isysroot`. Set `SDKROOT` before running them:
@@ -103,7 +128,24 @@ Tools that download these binaries should read [`index.json`](https://cpp-linter
 }
 ```
 
-It also has `platforms`, the minimum LLVM version of each tool under `tools`, and `release_url` and `sha512sums_url` for each version. Versions whose release was built since October 2026 also have `resource_headers` (clang's headers, see [above](#clang-tidy-needs-clangs-headers)), `license` (LLVM's `LICENSE.TXT`) and `buildinfo` (`BUILDINFO.json`), each with a name, URL, size and SHA-512. The index is updated whenever a version is added or rebuilt; the files it points to never change.
+It also has `platforms`, the minimum LLVM version of each tool under `tools`, and `release_url` and `sha512sums_url` for each version. Versions whose release was built since October 2026 also have `resource_headers` (clang's headers, see [above](#clang-tidy-needs-clangs-headers)), `license` (LLVM's `LICENSE.TXT`) and `buildinfo` (`BUILDINFO.json`), each with a name, URL, size and SHA-512. Versions whose release was built since November 2026 also have `scripts` (the [helper scripts](#helper-scripts)) and `bundles` (one [archive with everything](#everything-for-one-platform-in-one-archive) per platform). The index is updated whenever a version is added or rebuilt; the files it points to never change.
+
+### Earlier patch releases
+
+`index.json` lists the files of one release per LLVM major: the newest. If your project pins a full version, such as 21.1.0, look in `older_releases` of that major. It lists every earlier patch version that still has a release, newest first, each with its newest build:
+
+```json
+"older_releases": [
+  {
+    "version": "21.1.0",
+    "tag": "llvm-21.1.0",
+    "release_url": "https://github.com/cpp-linter/clang-tools-static-binaries/releases/tag/llvm-21.1.0",
+    "sha512sums_url": "https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/llvm-21.1.0/SHA512SUMS"
+  }
+]
+```
+
+The files of an earlier release have the same names as those of the current one, so replace the tag in a URL from `tools`, and check the download against that release's `SHA512SUMS`. An earlier release may lack files that were added later, such as the headers archive.
 
 ### Retired versions
 
@@ -131,7 +173,7 @@ Releases before 2026.06.29 have a `.sha512sum` file next to each binary instead 
 - Verify checksums using the `SHA512SUMS` file in the release, as in the [Quick start](https://github.com/cpp-linter/clang-tools-static-binaries#quick-start). It holds the SHA-512 hash of every binary in that release (`index.json` has the same hashes), in the format `sha512sum -c` reads.
 - Check where a binary was built: newly built releases have a [build provenance attestation](https://github.com/cpp-linter/clang-tools-static-binaries/blob/master/SECURITY.md#checking-where-a-binary-was-built) for every file except `SHA512SUMS`, which `gh attestation verify <file> --repo cpp-linter/clang-tools-static-binaries` checks.
 - See how a release was built: releases built since October 2026 have `BUILDINFO.json`, which records for every platform the LLVM source and its SHA-256, the patches, the CMake options, the compiler and the runner image. They also have LLVM's `LICENSE.TXT`.
-- Releases built since October 2026 were tested before they were published: [`acceptance.py`](https://github.com/cpp-linter/clang-tools-static-binaries/blob/master/acceptance.py) installs the binaries of every platform with clang's headers, the way users get them, and runs clang-tidy, clang-apply-replacements, clang-format, clang-query and clang-include-cleaner on test code. A version is published only when every platform passes. You can run it on any release, for example `python3 acceptance.py --version 21 --tag llvm-21.1.0`.
+- Releases built since October 2026 were tested before they were published: [`acceptance.py`](https://github.com/cpp-linter/clang-tools-static-binaries/blob/master/acceptance.py) installs the binaries of every platform with clang's headers, the way users get them, and runs clang-tidy, clang-apply-replacements, clang-format, clang-query and clang-include-cleaner on test code, and starts every helper script. A version is published only when every platform passes. You can run it on any release, for example `python3 acceptance.py --version 21 --tag llvm-21.1.0`.
 - Fork this repository and run GitHub Actions on your behalf
 - Build and test manually using `python3 build.py` (see [Building locally](https://github.com/cpp-linter/clang-tools-static-binaries#building-locally)) or the steps in [.github/workflows](https://github.com/cpp-linter/clang-tools-static-binaries/tree/master/.github/workflows)
 
