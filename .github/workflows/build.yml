@@ -31,6 +31,10 @@ on:
         description: "LLVM major versions to build again as a new revision, e.g. '22 23'"
         required: false
         default: ""
+      reason:
+        description: "Why they are rebuilt (required with 'rebuild'); written into the release notes"
+        required: false
+        default: ""
       dry-run:
         description: "Only print what would be copied and published"
         type: boolean
@@ -48,18 +52,15 @@ env:
 jobs:
   plan:
     # Each LLVM version has its own release (e.g. llvm-22.1.8) and is built only once.
-    # The plan lists versions to copy out of the latest combined release (seed)
-    # and versions that have no release yet (builds). See publish.py.
+    # The plan lists the versions that have no release yet and the versions to
+    # rebuild, each with its tag and the release it replaces. See publish.py.
     permissions:
       contents: read
     runs-on: ubuntu-latest
     outputs:
-      seed: ${{ steps.plan.outputs.seed }}
       builds: ${{ steps.plan.outputs.builds }}
       build-matrix: ${{ steps.plan.outputs.build-matrix }}
-      has-seed: ${{ steps.plan.outputs.has-seed }}
       has-builds: ${{ steps.plan.outputs.has-builds }}
-      latest: ${{ steps.plan.outputs.latest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,40 +91,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT: ${{ github.event_name }}
           REBUILD: ${{ inputs.rebuild }}
+          REASON: ${{ inputs.reason }}
         run: |
           if [[ "$EVENT" == "pull_request" ]]; then
             python3 publish.py plan --event "$EVENT" \
               --base-releases "$RUNNER_TEMP/base-releases.json" $BUILD_INPUTS_CHANGED
           else
-            python3 publish.py plan --event "$EVENT" --rebuild "$REBUILD"
+            python3 publish.py plan --event "$EVENT" --rebuild "$REBUILD" --reason "$REASON"
           fi
-  seed:
-    # One-time move to per-version releases: copy the existing binaries of a
-    # version out of the latest combined release instead of building them again.
-    needs: plan
-    # Releases are only written from master; other branches can only dry-run.
-    if: >-
-      github.event_name != 'pull_request' && needs.plan.outputs.has-seed == 'true'
-      && (github.ref == 'refs/heads/master' || inputs.dry-run)
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix:
-        include: ${{ fromJson(needs.plan.outputs.seed) }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Copy LLVM ${{ matrix.version }} into ${{ matrix.tag }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ matrix.version }}
-          TAG: ${{ matrix.tag }}
-          FROM: ${{ needs.plan.outputs.latest }}
-        run: python3 publish.py seed --version "$VERSION" --tag "$TAG" --from-tag "$FROM" $DRY_RUN
   build:
     needs: plan
     if: needs.plan.outputs.has-builds == 'true' && !inputs.dry-run
@@ -257,49 +232,71 @@ jobs:
           path: accepted
           pattern: 'acceptance-${{ matrix.version }}_*'
           merge-multiple: true
-      - name: Check LLVM ${{ matrix.version }} and write BUILDINFO.json
+      - name: Check LLVM ${{ matrix.version }}, write BUILDINFO.json and SHA512SUMS
         # Fails unless every platform built and passed the acceptance tests.
         # Lists every file of the release for the attestation.
         env:
           VERSION: ${{ matrix.version }}
           TAG: ${{ matrix.tag }}
+          SUPERSEDES: ${{ matrix.supersedes }}
+          REASON: ${{ matrix.reason }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python3 publish.py prepare --version "$VERSION" --tag "$TAG" \
             --artifacts artifacts --accepted accepted \
             --commit "$GITHUB_SHA" --run-url "$RUN_URL" \
+            --supersedes "$SUPERSEDES" --reason "$REASON" \
+            --sums-out "$RUNNER_TEMP/release/SHA512SUMS" \
             --subjects "$RUNNER_TEMP/files.sha256"
           cat "$RUNNER_TEMP/files.sha256"
+      - name: Skip ${{ matrix.tag }} if an earlier attempt published it
+        # Re-running failed jobs runs this job again for every version, also
+        # for those that an earlier attempt of this run published. Those are
+        # skipped (and fail if their files differ). Drafts that a failed
+        # attempt left behind are deleted.
+        id: status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ matrix.tag }}
+        run: python3 publish.py status --tag "$TAG" --sums "$RUNNER_TEMP/release/SHA512SUMS"
       - name: Attest build provenance of LLVM ${{ matrix.version }}
         # Records, signed and in Sigstore's public log, that each file was
         # built by this workflow run from this commit. Users check it with
         # `gh attestation verify <file> --repo <this repository>`. This runs
         # before the release is published, so no release goes out without it.
+        if: steps.status.outputs.published != 'true'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-checksums: ${{ runner.temp }}/files.sha256
       - name: Publish ${{ matrix.tag }}
+        if: steps.status.outputs.published != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ matrix.version }}
           TAG: ${{ matrix.tag }}
+          SUPERSEDES: ${{ matrix.supersedes }}
+          REASON: ${{ matrix.reason }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python3 publish.py version --version "$VERSION" --tag "$TAG" \
-            --artifacts artifacts --commit "$GITHUB_SHA" --run-url "$RUN_URL"
+            --artifacts artifacts --sums "$RUNNER_TEMP/release/SHA512SUMS" \
+            --commit "$GITHUB_SHA" --run-url "$RUN_URL" \
+            --supersedes "$SUPERSEDES" --reason "$REASON"
   index:
     # index.json lists every file of every supported version (URL, size,
     # SHA-512). Downstream tools read it instead of one release that holds
     # everything. If a version's new build failed, the previous release of
     # that LLVM major stays in the index.
-    needs: [plan, seed, publish-version]
+    needs: [plan, publish-version]
     if: >-
       always() && github.event_name != 'pull_request'
       && (github.ref == 'refs/heads/master' || inputs.dry-run)
       && needs.plan.result == 'success'
-      && needs.seed.result != 'failure' && needs.seed.result != 'cancelled'
     permissions:
       contents: read
+      # For the build provenance attestation of index.json.
+      id-token: write
+      attestations: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -311,9 +308,19 @@ jobs:
         run: |
           python3 publish.py index --output site
           python3 -c "import json; d = json.load(open('site/index.json')); print(json.dumps({v: i['tag'] for v, i in d['versions'].items()}, indent=2))"
+      - name: Attest build provenance of index.json
+        # `gh attestation verify index.json --repo <this repository>` shows
+        # which workflow run wrote the index that downstream tools read.
+        if: github.ref == 'refs/heads/master' && !inputs.dry-run
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: site/index.json
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
+          # One name per attempt: a re-run of failed jobs uploads the pages
+          # again, and deploy-pages refuses a run with two artifacts of one name.
+          name: github-pages-${{ github.run_attempt }}
   deploy-index:
     needs: index
     if: >-
@@ -329,3 +336,5 @@ jobs:
     steps:
       - id: deploy
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}

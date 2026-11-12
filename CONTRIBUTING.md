@@ -65,10 +65,13 @@ After the PR is merged, CI publishes each new version in its own release (for
 example `llvm-24.1.0`) and updates `index.json` on GitHub Pages. Versions that
 already have a release are not built again. A change to `build.py` or a patch
 only rebuilds a version when you ask for it: run the **Build** workflow by hand
-with the versions to rebuild, for example `22 23`. Each rebuilt version gets a
-new revision (`llvm-22.1.8-2`). If a version fails to build, the other
+with the versions to rebuild, for example `22 23`, and the reason, which goes
+into the release notes. Each rebuilt version gets a new revision
+(`llvm-22.1.8-2`), and its notes name the release it replaces. If a version fails to build, the other
 versions are still published, and `index.json` keeps the previous release of
-that LLVM major until the build is fixed. On pull requests that change
+that LLVM major until the build is fixed. Re-running the failed jobs of a run
+is safe: versions that an earlier attempt published are checked against their
+release and skipped, and drafts left by a failed attempt are deleted. On pull requests that change
 `build.py`, `acceptance.py`, a patch or the workflow, CI builds the newest and
 the oldest version to check the change. Changing only action versions (`uses:` lines) in
 the workflow does not trigger these builds.

@@ -15,14 +15,19 @@ Python download metadata.
 
 Subcommands (all are called from .github/workflows/build.yml):
 
-* ``plan``    - decide which versions to copy out of the last combined
-                release (SEED_FROM, once) and which to build.
-* ``seed``    - copy one version's files out of SEED_FROM into a new
-                version release.
+* ``plan``    - decide which versions to build and the tag of each.
 * ``prepare`` - check one version's build artifacts and acceptance results,
-                write its BUILDINFO.json and list the files to attest.
+                write its BUILDINFO.json and SHA512SUMS and list the files to
+                attest.
+* ``status``  - tell whether an earlier attempt of the same workflow run
+                already published the release, and delete drafts that a
+                failed attempt left behind.
 * ``version`` - publish one version release from the build artifacts.
 * ``index``   - write index.json and index.html from the version releases.
+
+Every step can run again: re-running the failed jobs of a workflow run skips
+the versions that an earlier attempt published, instead of publishing them
+twice.
 
 ``gh`` (GitHub CLI) must be installed and ``GH_TOKEN``/``GH_REPO`` set for the
 subcommands that talk to GitHub.
@@ -36,7 +41,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tarfile
@@ -72,10 +76,6 @@ BUILDINFO_SCHEMA_VERSION = 1
 
 DEFAULT_REPO = "cpp-linter/clang-tools-static-binaries"
 INDEX_SCHEMA_VERSION = 1
-
-# The last release that held every LLVM version in one place. Versions whose
-# source matches it are copied out of it once instead of being built again.
-SEED_FROM = "2026.09.01-5fb8802d"
 
 
 # ---------------------------------------------------------------------------
@@ -132,25 +132,23 @@ def make_plan(
     event: str,
     releases: dict[str, str],
     published: set[str],
-    latest_sources: dict[str, str] | None,
     base_releases: dict[str, str] | None = None,
     build_inputs_changed: bool = False,
     rebuild: list[str] | None = None,
 ) -> dict:
-    """Decide what to seed and what to build.
+    """Decide what to build.
 
-    *published* holds the tags of all published releases. *latest_sources*
-    is ``llvm_versions`` from the versions.json of release SEED_FROM.
-    On pull requests nothing is published, so only the versions changed
-    against *base_releases* are built (plus the newest and oldest version
-    when the build inputs changed).
+    *published* holds the tags of all published releases. Each build names
+    the release it replaces as the current one of its LLVM major
+    (``supersedes``), if there is one. On pull requests nothing is
+    published, so only the versions changed against *base_releases* are
+    built (plus the newest and oldest version when the build inputs changed).
     """
     rebuild = rebuild or []
     unknown = [v for v in rebuild if v not in releases]
     if unknown:
         raise ValueError(f"Not in releases.json: {', '.join(unknown)}")
 
-    seed: list[dict] = []
     builds: list[dict] = []
 
     if event == "pull_request":
@@ -161,21 +159,23 @@ def make_plan(
             changed += [ordered[0], ordered[-1]]
         for version in sort_versions(set(changed)):
             builds.append(
-                {"version": version, "tag": next_tag(releases[version], set())}
+                {
+                    "version": version,
+                    "tag": next_tag(releases[version], set()),
+                    "supersedes": "",
+                }
             )
     else:
-        latest_sources = latest_sources or {}
         for version in sort_versions(releases):
             source = releases[version]
-            if version in rebuild:
-                builds.append({"version": version, "tag": next_tag(source, published)})
-            elif current_tag(source, published) is None:
-                if latest_sources.get(version) == source:
-                    seed.append({"version": version, "tag": base_tag(source)})
-                else:
-                    builds.append(
-                        {"version": version, "tag": next_tag(source, published)}
-                    )
+            if version in rebuild or current_tag(source, published) is None:
+                builds.append(
+                    {
+                        "version": version,
+                        "tag": next_tag(source, published),
+                        "supersedes": fallback_tag(version, published) or "",
+                    }
+                )
 
     include = []
     for item in builds:
@@ -193,7 +193,6 @@ def make_plan(
                 }
             )
     return {
-        "seed": seed,
         "builds": builds,
         "build-matrix": {"include": include},
     }
@@ -223,14 +222,33 @@ def published_tags() -> set[str]:
     return {line for line in out.splitlines() if line}
 
 
-def seed_versions_json() -> dict | None:
-    """versions.json of the last combined release, or None if it is gone."""
-    with tempfile.TemporaryDirectory() as tmp:
-        try:
-            gh("release", "download", SEED_FROM, "-p", "versions.json", "-D", tmp)
-        except subprocess.CalledProcessError:
-            return None
-        return json.loads((Path(tmp) / "versions.json").read_text(encoding="utf-8"))
+def releases_of(tag: str) -> list[dict]:
+    """Every release, draft or published, whose tag is *tag*.
+
+    A draft has no git tag yet, so GitHub allows several drafts, and a
+    published release, with the same tag name.
+    """
+    out = gh(
+        "api",
+        "--paginate",
+        "repos/{owner}/{repo}/releases?per_page=100",
+        "--jq",
+        f".[] | select(.tag_name == {json.dumps(tag)}) | {{id, draft}}",
+    )
+    return [json.loads(line) for line in out.splitlines() if line.strip()]
+
+
+def delete_drafts(tag: str) -> None:
+    """Delete the drafts with tag *tag*: what failed attempts left behind."""
+    for release in releases_of(tag):
+        if release["draft"]:
+            print(f"Deleting draft release {release['id']} ({tag})")
+            gh(
+                "api",
+                "-X",
+                "DELETE",
+                f"repos/{{owner}}/{{repo}}/releases/{release['id']}",
+            )
 
 
 def upload_with_retry(tag: str, path: Path, retries: int = 5) -> None:
@@ -396,69 +414,99 @@ def create_release(
         nf.name,
     ]
     gh(*args, capture=False)
-    for f in files:
-        upload_with_retry(tag, f)
-    gh(
-        "release",
-        "edit",
-        tag,
-        "--draft=false",
-        f"--latest={str(latest).lower()}",
-        capture=False,
-    )
+    try:
+        for f in files:
+            upload_with_retry(tag, f)
+        gh(
+            "release",
+            "edit",
+            tag,
+            "--draft=false",
+            f"--latest={str(latest).lower()}",
+            capture=False,
+        )
+    except BaseException:
+        # Leave no half-uploaded draft behind. The release is still a draft
+        # (publishing is the last step), so no published release is touched.
+        print(f"::error::Publishing {tag} failed; deleting its draft.")
+        delete_drafts(tag)
+        raise
 
 
-def version_notes(version: str, source: str, how: str, *, built: bool = False) -> str:
-    """Release notes. *built* releases also have the common_files()."""
+def history_line(version: str, source: str, supersedes: str, reason: str) -> str:
+    """Why this release exists and which release it replaces, for the notes."""
+    if supersedes and tag_source(supersedes) == source:
+        line = f"New build of `{source}`; replaces `{supersedes}`."
+    elif supersedes:
+        line = f"Replaces `{supersedes}` as the current release of LLVM {version}."
+    else:
+        line = f"First release of LLVM {version}."
+    if reason:
+        line += f" Reason: {reason}"
+    return line
+
+
+def version_notes(
+    version: str, source: str, how: str, *, supersedes: str = "", reason: str = ""
+) -> str:
+    """Release notes of a newly built version."""
     lines = [
         f"LLVM {version} binaries built from `{source}`.",
         "",
         how,
+        "",
+        history_line(version, source, supersedes, reason),
         "",
         "Platforms: " + ", ".join(PLATFORM_NAMES),
         "",
         "Tools: " + ", ".join(build.active_tools(version)),
         "",
     ]
-    if built:
-        lines += [
-            (
-                "clang-tidy, clang-query and clang-include-cleaner need clang's "
-                "builtin headers (`stddef.h`, `stdarg.h` and others). Unpack "
-                f"`{build.resource_headers_name(version)}` in the parent of the "
-                "directory that holds the binaries: it creates "
-                "`lib/clang/<version>/include`, where the tools look for them."
-            ),
-            "",
-            (
-                "Before this release was published, the binaries of every "
-                "platform were installed that way and run on test code "
-                "(`acceptance.py`)."
-            ),
-            "",
-            (
-                f"`{build.scripts_name(version)}` holds `run-clang-tidy`, "
-                "`clang-tidy-diff.py`, `clang-format-diff.py` and "
-                "`git-clang-format` from the same LLVM release. It unpacks to "
-                "`bin/`, next to the headers' `lib/`. The scripts need Python 3."
-            ),
-            "",
-            (
-                f"`clang-tools-{version}_<platform>.tar.gz` holds everything for "
-                "one platform in the layout of an LLVM installation: the tools "
-                "under their plain names and the scripts in `bin/`, the headers "
-                "in `lib/clang/`, and the license."
-            ),
-            "",
-            (
-                f"`{build.LICENSE_FILE}` is LLVM's license. `{BUILDINFO_FILE}` "
-                "records how each platform was built: source and its SHA-256, "
-                "patches, CMake options, compiler and runner image."
-            ),
-            "",
-        ]
+    lines += [
+        (
+            "clang-tidy, clang-query and clang-include-cleaner need clang's "
+            "builtin headers (`stddef.h`, `stdarg.h` and others). Unpack "
+            f"`{build.resource_headers_name(version)}` in the parent of the "
+            "directory that holds the binaries: it creates "
+            "`lib/clang/<version>/include`, where the tools look for them."
+        ),
+        "",
+        (
+            "Before this release was published, the binaries of every "
+            "platform were installed that way and run on test code "
+            "(`acceptance.py`)."
+        ),
+        "",
+        (
+            f"`{build.scripts_name(version)}` holds `run-clang-tidy`, "
+            "`clang-tidy-diff.py`, `clang-format-diff.py` and "
+            "`git-clang-format` from the same LLVM release. It unpacks to "
+            "`bin/`, next to the headers' `lib/`. The scripts need Python 3."
+        ),
+        "",
+        (
+            f"`clang-tools-{version}_<platform>.tar.gz` holds everything for "
+            "one platform in the layout of an LLVM installation: the tools "
+            "under their plain names and the scripts in `bin/`, the headers "
+            "in `lib/clang/`, and the license."
+        ),
+        "",
+        (
+            f"`{build.LICENSE_FILE}` is LLVM's license. `{BUILDINFO_FILE}` "
+            "records how each platform was built: source and its SHA-256, "
+            "patches, CMake options, compiler and runner image."
+        ),
+        "",
+    ]
     lines += [
         "Verify downloads with `sha512sum -c SHA512SUMS --ignore-missing`.",
+        "",
+        (
+            "Every file, SHA512SUMS included, has a build provenance "
+            "attestation. Check which workflow run and commit built a file "
+            "with `gh attestation verify <file> --repo "
+            f"{os.environ.get('GITHUB_REPOSITORY', DEFAULT_REPO)}`."
+        ),
         "",
     ]
     return "\n".join(lines)
@@ -481,76 +529,35 @@ def cmd_plan(args: argparse.Namespace) -> None:
             f"Not in sources.sha256: {', '.join(unpinned)}. See CONTRIBUTING.md."
         )
     rebuild = args.rebuild.replace(",", " ").split()
+    if rebuild and not args.reason.strip():
+        # The reason goes into the release notes: a new revision of a
+        # release that already exists must say why it was made.
+        raise SystemExit("Say why these versions are rebuilt (input 'reason').")
     if args.event == "pull_request":
         base = json.loads(Path(args.base_releases).read_text(encoding="utf-8"))
         plan = make_plan(
             event=args.event,
             releases=releases,
             published=set(),
-            latest_sources=None,
             base_releases=base,
             build_inputs_changed=args.build_inputs_changed,
         )
     else:
-        seed_from = seed_versions_json() or {}
         plan = make_plan(
             event=args.event,
             releases=releases,
             published=published_tags(),
-            latest_sources=seed_from.get("llvm_versions"),
             rebuild=rebuild,
         )
-        plan["latest"] = SEED_FROM
 
+    for item in plan["builds"]:
+        item["reason"] = args.reason.strip() if item["version"] in rebuild else ""
     print(json.dumps(plan, indent=2), file=sys.stderr)
     if args.github_output:
         with open(args.github_output, "a", encoding="utf-8") as out:
-            out.write(f"seed={json.dumps(plan['seed'])}\n")
             out.write(f"builds={json.dumps(plan['builds'])}\n")
             out.write(f"build-matrix={json.dumps(plan['build-matrix'])}\n")
-            out.write(f"has-seed={str(bool(plan['seed'])).lower()}\n")
             out.write(f"has-builds={str(bool(plan['builds'])).lower()}\n")
-            out.write(f"latest={plan.get('latest') or ''}\n")
-
-
-def cmd_seed(args: argparse.Namespace) -> None:
-    version, tag, src_tag = args.version, args.tag, args.from_tag
-    source = build.RELEASES[version]
-    work = Path(tempfile.mkdtemp(prefix=f"seed-{version}-"))
-    try:
-        gh(
-            "release",
-            "download",
-            src_tag,
-            "-p",
-            f"*-{version}_*",
-            "-p",
-            "SHA512SUMS",
-            "-D",
-            str(work),
-        )
-        all_sums = read_sums(work / "SHA512SUMS")
-        (work / "SHA512SUMS").unlink()
-        files = select_files(version, work.iterdir())
-        sums = {n: all_sums[n] for n in files if n in all_sums}
-        check_files(version, files, sums)
-        write_sums(work / "SHA512SUMS", sums)
-        notes = version_notes(
-            version,
-            source,
-            f"These files were copied unchanged from release `{src_tag}` "
-            "when the project moved to one release per LLVM version.",
-        )
-        create_release(
-            tag,
-            tag,
-            notes,
-            [work / "SHA512SUMS", *sorted(files.values())],
-            latest=False,
-            dry_run=args.dry_run,
-        )
-    finally:
-        shutil.rmtree(work, ignore_errors=True)
 
 
 def collect_files(
@@ -580,6 +587,8 @@ def merge_buildinfo(
     repo: str,
     commit: str,
     run_url: str,
+    supersedes: str = "",
+    reason: str = "",
 ) -> dict:
     """BUILDINFO.json: the build details of every platform in one file."""
     platforms: dict[str, dict] = {}
@@ -615,6 +624,10 @@ def merge_buildinfo(
             "workflow": ".github/workflows/build.yml",
             "run_url": run_url,
         },
+        # The release this one replaces as the current release of its LLVM
+        # major, and why it was built (given for rebuilds).
+        "supersedes": supersedes or None,
+        "reason": reason or None,
         "tools": build.active_tools(version),
         "resource_headers": {
             "name": build.resource_headers_name(version),
@@ -706,6 +719,8 @@ def cmd_prepare(args: argparse.Namespace) -> None:
         repo=os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPO),
         commit=args.commit,
         run_url=args.run_url,
+        supersedes=args.supersedes,
+        reason=args.reason,
     )
     (artifacts / BUILDINFO_FILE).write_text(
         json.dumps(info, indent=2) + "\n", encoding="utf-8"
@@ -715,7 +730,13 @@ def cmd_prepare(args: argparse.Namespace) -> None:
         name = bundle_name(version, platform_name)
         write_bundle(version, platform_name, built, artifacts / name)
         print(f"Wrote {name}")
-    files, _ = collect_files(version, artifacts, common)
+    files, sums = collect_files(version, artifacts, common)
+    # SHA512SUMS is written here, not when publishing, so that it is attested
+    # like every other file and `version` uploads these same bytes.
+    sums_file = Path(args.sums_out)
+    sums_file.parent.mkdir(parents=True, exist_ok=True)
+    write_sums(sums_file, {n: sums[n] for n in files})
+    files = {**files, "SHA512SUMS": sums_file}
     # The input of actions/attest-build-provenance: every file the release
     # will have, in `sha256sum` format.
     Path(args.subjects).write_text(
@@ -725,12 +746,40 @@ def cmd_prepare(args: argparse.Namespace) -> None:
     print(f"LLVM {version}: {len(files)} files ready to attest and publish.")
 
 
+def cmd_status(args: argparse.Namespace) -> None:
+    """Tell whether *tag* is already published; delete its leftover drafts.
+
+    Re-running the failed jobs of a workflow run runs every publish job
+    again, also for versions that the first attempt published. Those are
+    skipped when the published SHA512SUMS matches this run's, and fail when
+    it does not: a published release is never changed.
+    """
+    tag = args.tag
+    delete_drafts(tag)
+    published = any(not r["draft"] for r in releases_of(tag))
+    if published:
+        if release_sums(tag) != read_sums(Path(args.sums)):
+            raise SystemExit(
+                f"{tag} is already published with other files than this run "
+                "built. Published releases are never changed; dispatch a "
+                "rebuild to get a new revision."
+            )
+        print(f"::notice::{tag} was already published with these files; skipping.")
+    else:
+        print(f"{tag} is not published yet.")
+    if args.github_output:
+        with open(args.github_output, "a", encoding="utf-8") as out:
+            out.write(f"published={str(published).lower()}\n")
+
+
 def cmd_version(args: argparse.Namespace) -> None:
     version, tag = args.version, args.tag
     source = build.RELEASES[version]
     files, sums = collect_files(version, Path(args.artifacts), common_files(version))
-    out = Path(tempfile.mkdtemp()) / "SHA512SUMS"
-    write_sums(out, {n: sums[n] for n in files})
+    # The SHA512SUMS that `prepare` wrote and build.yml attested.
+    out = Path(args.sums)
+    if read_sums(out) != {n: sums[n] for n in files}:
+        raise SystemExit(f"{out} does not match the files of LLVM {version}.")
     how = ""
     if args.commit or args.run_url:
         how = "Built"
@@ -738,14 +787,8 @@ def cmd_version(args: argparse.Namespace) -> None:
             how += f" from commit {args.commit}"
         if args.run_url:
             how += f" by {args.run_url}"
-    notes = version_notes(version, source, how, built=True)
-    # build.yml attests every file but SHA512SUMS (written here) before it
-    # runs this command.
-    repo = os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPO)
-    notes += (
-        "\nEvery file except SHA512SUMS has a build provenance attestation. "
-        "Check which workflow run and commit built a file with "
-        f"`gh attestation verify <file> --repo {repo}`.\n"
+    notes = version_notes(
+        version, source, how, supersedes=args.supersedes, reason=args.reason
     )
     create_release(
         tag,
@@ -975,27 +1018,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("plan", help="Decide what to seed and build.")
+    p = sub.add_parser("plan", help="Decide what to build.")
     p.add_argument("--event", required=True, help="GitHub event name.")
     p.add_argument("--base-releases", help="releases.json of the PR base branch.")
     p.add_argument("--build-inputs-changed", action="store_true")
     p.add_argument(
         "--rebuild", default="", help="LLVM majors to rebuild, e.g. '22 23'."
     )
+    p.add_argument("--reason", default="", help="Why they are rebuilt.")
     p.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT"))
     p.set_defaults(func=cmd_plan)
-
-    p = sub.add_parser("seed", help="Copy a version out of SEED_FROM.")
-    p.add_argument("--version", required=True)
-    p.add_argument("--tag", required=True)
-    p.add_argument("--from-tag", required=True)
-    p.add_argument("--dry-run", action="store_true")
-    p.set_defaults(func=cmd_seed)
 
     p = sub.add_parser(
         "prepare",
         help="Check one version's artifacts and acceptance results, write "
-        "BUILDINFO.json and list the files to attest.",
+        "BUILDINFO.json and SHA512SUMS and list the files to attest.",
     )
     p.add_argument("--version", required=True)
     p.add_argument("--tag", required=True)
@@ -1007,19 +1044,34 @@ def main() -> None:
     )
     p.add_argument("--commit", required=True)
     p.add_argument("--run-url", default="")
+    p.add_argument("--supersedes", default="", help="Release this one replaces.")
+    p.add_argument("--reason", default="", help="Why this version was built.")
+    p.add_argument("--sums-out", required=True, help="Write SHA512SUMS here.")
     p.add_argument(
         "--subjects", required=True, help="Write the SHA-256 of every file here."
     )
     p.set_defaults(func=cmd_prepare)
 
+    p = sub.add_parser(
+        "status",
+        help="Tell whether a release is already published; delete its drafts.",
+    )
+    p.add_argument("--tag", required=True)
+    p.add_argument("--sums", required=True, help="SHA512SUMS written by prepare.")
+    p.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT"))
+    p.set_defaults(func=cmd_status)
+
     p = sub.add_parser("version", help="Publish one version from build artifacts.")
     p.add_argument("--version", required=True)
     p.add_argument("--tag", required=True)
     p.add_argument("--artifacts", required=True)
+    p.add_argument("--sums", required=True, help="SHA512SUMS written by prepare.")
     p.add_argument(
         "--commit", help="Commit the binaries were built from, named in the notes."
     )
     p.add_argument("--run-url", default="")
+    p.add_argument("--supersedes", default="", help="Release this one replaces.")
+    p.add_argument("--reason", default="", help="Why this version was built.")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_version)
 
