@@ -474,9 +474,9 @@ these files should read <a href="index.json">index.json</a>.</p>
 {install_table}
 
 <h2 id="verify">Verify a download</h2>
-<p>Every release has a <code>SHA512SUMS</code> file, and every file of the
-current releases has a build provenance attestation, which shows the workflow
-run and commit that built it (see
+<p>Every release has a <code>SHA512SUMS</code> file, and every binary and archive
+of the current releases has a build provenance attestation, which shows the
+workflow run and commit that built it (see
 <a href="https://github.com/{esc(repo)}/blob/master/SECURITY.md">SECURITY.md</a>):</p>
 <pre><code>curl -fLO {esc(first["url"])}
 curl -fLO {esc(index["versions"][latest]["sha512sums_url"])}
