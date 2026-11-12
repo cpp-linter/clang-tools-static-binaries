@@ -4,7 +4,7 @@ Thanks for your interest in contributing! This project builds and distributes st
 
 ## Quick Start
 
-The build pipeline is in `.github/workflows/build.yml`. You can also reproduce any build locally with the provided Python script:
+The build pipeline is in `.github/workflows/build.yml`. You can also build any version locally with the provided Python script:
 
 ```bash
 python build.py --version 18

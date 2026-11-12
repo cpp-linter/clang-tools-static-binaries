@@ -460,8 +460,9 @@ def render_html(
 <main>
 <h1>clang-tools static binaries</h1>
 <p>Static builds of clang-format, clang-tidy and other LLVM tools, for LLVM {esc(oldest)}
-to {esc(latest)} on Linux, macOS and Windows, on x86-64 and ARM64. Each file is a
-single executable: download it and run it. Built by
+to {esc(latest)} on Linux, macOS and Windows, on x86-64 and ARM64. Each tool is a
+single executable. clang-tidy, clang-query and clang-include-cleaner also need
+clang's headers, which the archive with everything for a platform includes. Built by
 <a href="https://github.com/{esc(repo)}">{esc(repo)}</a>; tools that download
 these files should read <a href="index.json">index.json</a>.</p>
 <nav class="muted"><span>Jump to LLVM</span>{nav}</nav>
@@ -473,9 +474,9 @@ these files should read <a href="index.json">index.json</a>.</p>
 {install_table}
 
 <h2 id="verify">Verify a download</h2>
-<p>Every release has a <code>SHA512SUMS</code> file. Releases built since build
-provenance attestations were added also let you check which workflow run and
-commit built a file (see
+<p>Every release has a <code>SHA512SUMS</code> file, and every file of the
+current releases has a build provenance attestation, which shows the workflow
+run and commit that built it (see
 <a href="https://github.com/{esc(repo)}/blob/master/SECURITY.md">SECURITY.md</a>):</p>
 <pre><code>curl -fLO {esc(first["url"])}
 curl -fLO {esc(index["versions"][latest]["sha512sums_url"])}

@@ -38,7 +38,7 @@ Releases whose notes show the `gh attestation verify` command have attestations;
 
 If you prefer not to trust pre-built binaries, you have two options:
 
-1. **Build from source yourself** — Use `python build.py` (see [README](README.md#building-locally)) to reproduce any build on your own machine.
+1. **Build from source yourself** — Use `python build.py` (see [README](README.md#building-locally)) to build any version on your own machine from the same source, options and patches as CI.
 2. **Fork and run CI** — Fork this repository and run the GitHub Actions workflow on your own fork. The binaries you download from your fork’s releases page were produced by your own CI.
 
 ## Reporting a Vulnerability
