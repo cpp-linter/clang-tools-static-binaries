@@ -134,6 +134,10 @@ SCRIPTS = {
 }
 
 
+PYTHON2_SHEBANG = b"#!/usr/bin/env python\n"
+PYTHON3_SHEBANG = b"#!/usr/bin/env python3\n"
+
+
 def scripts_name(version: str) -> str:
     """Name of the archive that holds the helper scripts of LLVM *version*."""
     return f"clang-tools-scripts-{version}.tar.gz"
@@ -290,6 +294,11 @@ def pack_scripts(source: Path, archive: Path) -> None:
     ):
         for path, name in sorted(SCRIPTS.items(), key=lambda item: item[1]):
             data = (source / path).read_bytes()
+            # Up to LLVM 16 some scripts start with "#!/usr/bin/env python",
+            # a command that Ubuntu and macOS do not have. All of them run on
+            # Python 3.
+            if data.startswith(PYTHON2_SHEBANG):
+                data = PYTHON3_SHEBANG + data[len(PYTHON2_SHEBANG) :]
             info = tarfile.TarInfo(f"bin/{name}")
             info.size = len(data)
             info.mode = 0o755
