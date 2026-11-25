@@ -1,0 +1,81 @@
+name: Stats
+
+# Adds up the download counts of every release (download_stats.py) and
+# commits stats.json and history.csv to the download-stats branch, where the
+# download page and the README badge read them. GitHub keeps only running
+# totals, so history.csv gets one row per day from the first run on.
+
+on:
+  schedule:
+    # Daily at 05:20 UTC
+    - cron: '20 5 * * *'
+  workflow_dispatch:
+  pull_request:
+    branches: [ master ]
+    paths:
+      - ".github/workflows/stats.yml"
+      - "download_stats.py"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  BRANCH: download-stats
+
+jobs:
+  stats:
+    if: github.repository_owner == 'cpp-linter'
+    runs-on: ubuntu-latest
+    permissions:
+      # Commit to the download-stats branch. Pull requests only print the
+      # totals in the job summary.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the current history
+        run: |
+          if git fetch --depth=1 origin "refs/heads/$BRANCH"; then
+            git show FETCH_HEAD:history.csv > "$RUNNER_TEMP/history.csv" || true
+          fi
+
+      - name: Count the downloads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 download_stats.py --output "$RUNNER_TEMP/stats" \
+            --history-in "$RUNNER_TEMP/history.csv"
+
+      - name: Commit to the ${{ env.BRANCH }} branch
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          dir="$RUNNER_TEMP/branch"
+          git init -q "$dir"
+          cd "$dir"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git config "http.https://github.com/.extraheader" "$auth"
+          git remote add origin "https://github.com/$REPO.git"
+          # The branch holds only these two files; the first run creates it.
+          if git fetch -q --depth=1 origin "refs/heads/$BRANCH"; then
+            git checkout -q -B "$BRANCH" FETCH_HEAD
+          else
+            git checkout -q --orphan "$BRANCH"
+          fi
+          cp "$RUNNER_TEMP/stats/stats.json" "$RUNNER_TEMP/stats/history.csv" .
+          git add stats.json history.csv
+          if git diff --cached --quiet; then
+            echo "No change."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Download counts of $(date -u +%F)"
+          git push -q origin "HEAD:refs/heads/$BRANCH"

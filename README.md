@@ -1,6 +1,7 @@
 # clang-tools-static-binaries
 
 [![LLVM](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcpp-linter.github.io%2Fclang-tools-static-binaries%2Findex.json&query=%24.latest_version&label=LLVM&labelColor=454a63&color=007ec6)](https://cpp-linter.github.io/clang-tools-static-binaries/)
+[![downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcpp-linter%2Fclang-tools-static-binaries%2Fdownload-stats%2Fstats.json&query=%24.total_short&label=downloads&labelColor=454a63&color=007ec6)](https://cpp-linter.github.io/clang-tools-static-binaries/#downloads)
 [![ci](https://img.shields.io/github/actions/workflow/status/cpp-linter/clang-tools-static-binaries/build.yml?branch=master&label=ci&labelColor=454a63)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml)
 [![part of cpp-linter](https://img.shields.io/badge/part%20of-cpp--linter-ffc20a?labelColor=454a63)](https://cpp-linter.github.io/)
 
@@ -10,7 +11,7 @@ Static binaries of clang-format, clang-tidy and other LLVM tools, so you can use
 
 ## Quick start
 
-Every LLVM version has its own release, named after the LLVM release it was built from. The [download page](https://cpp-linter.github.io/clang-tools-static-binaries/) lists the current release of every version and links to each file. It also shows which versions LLVM, PyPI, conda-forge and Homebrew have, with an install command for each source.
+Every LLVM version has its own release, named after the LLVM release it was built from. The [download page](https://cpp-linter.github.io/clang-tools-static-binaries/) lists the current release of every version and links to each file. It also shows which versions LLVM, PyPI, conda-forge and Homebrew have, with an install command for each source. Its [Downloads](https://cpp-linter.github.io/clang-tools-static-binaries/#downloads) section shows how often the files of all releases were downloaded, from counts that the [Stats workflow](.github/workflows/stats.yml) adds up every day (`stats.json` and `history.csv` on the [`download-stats`](https://github.com/cpp-linter/clang-tools-static-binaries/tree/download-stats) branch).
 
 To download clang-format 23 for Linux x86-64, check it and run it:
 
