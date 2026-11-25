@@ -19,7 +19,9 @@ on:
 permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # One group for every run that commits to the branch, whatever its ref, so
+  # that two runs never write history.csv at the same time.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -39,9 +41,19 @@ jobs:
           persist-credentials: false
 
       - name: Read the current history
+        # Only a branch that does not exist yet starts a new history. Any
+        # other failure stops the job, so that a history with only today's
+        # row never replaces the real one.
         run: |
-          if git fetch --depth=1 origin "refs/heads/$BRANCH"; then
-            git show FETCH_HEAD:history.csv > "$RUNNER_TEMP/history.csv" || true
+          status=0
+          git ls-remote --exit-code --heads origin "refs/heads/$BRANCH" > /dev/null || status=$?
+          if [[ $status == 2 ]]; then
+            echo "No $BRANCH branch yet: starting a new history."
+          elif [[ $status == 0 ]]; then
+            git fetch --depth=1 origin "refs/heads/$BRANCH"
+            git show FETCH_HEAD:history.csv > "$RUNNER_TEMP/history.csv"
+          else
+            exit "$status"
           fi
 
       - name: Count the downloads
@@ -64,10 +76,15 @@ jobs:
           git config "http.https://github.com/.extraheader" "$auth"
           git remote add origin "https://github.com/$REPO.git"
           # The branch holds only these two files; the first run creates it.
-          if git fetch -q --depth=1 origin "refs/heads/$BRANCH"; then
+          status=0
+          git ls-remote --exit-code --heads origin "refs/heads/$BRANCH" > /dev/null || status=$?
+          if [[ $status == 2 ]]; then
+            git checkout -q --orphan "$BRANCH"
+          elif [[ $status == 0 ]]; then
+            git fetch -q --depth=1 origin "refs/heads/$BRANCH"
             git checkout -q -B "$BRANCH" FETCH_HEAD
           else
-            git checkout -q --orphan "$BRANCH"
+            exit "$status"
           fi
           cp "$RUNNER_TEMP/stats/stats.json" "$RUNNER_TEMP/stats/history.csv" .
           git add stats.json history.csv
