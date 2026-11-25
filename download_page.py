@@ -24,7 +24,7 @@ USER_AGENT = (
     "clang-tools-static-binaries"
     " (+https://github.com/cpp-linter/clang-tools-static-binaries)"
 )
-# The download counts, written daily by download_stats.py (Stats workflow) to
+# The download counts, written daily by the Stats workflow to
 # the download-stats branch. The page reads them when it is viewed, so they
 # stay current between releases.
 STATS_URL = "https://raw.githubusercontent.com/{repo}/download-stats/stats.json"
@@ -48,9 +48,18 @@ STATS_SCRIPT = """
   total.textContent = n(s.total) + " downloads from GitHub releases, as of " + day + ".";
   total.hidden = false;
   // Integer keys ("23") lose their order in a JS object, so sort again.
-  const majors = Object.entries(s.by_major).sort((a, b) => b[0] - a[0]);
-  const platforms = Object.entries(s.by_platform).map(([k, v]) =>
-    [k === "any" ? "any (headers, scripts)" : k, v]);
+  const majors = Object.entries(s.groups.major || {}).sort((a, b) => b[0] - a[0]);
+  // Platform names of the releases before 2026.06.
+  const alias = { "macosx-amd64": "macos-amd64", "macos-intel-amd64": "macos-amd64",
+    "macosx-arm64": "macos-arm64" };
+  const byPlatform = {};
+  for (const [k, v] of Object.entries(s.groups.platform || {})) {
+    const name = alias[k] || k;
+    byPlatform[name] = (byPlatform[name] || 0) + v;
+  }
+  const platforms = Object.entries(byPlatform).sort((a, b) => b[1] - a[1]);
+  let llvm = 0;
+  for (const [tag, v] of Object.entries(s.releases)) if (tag.startsWith("llvm-")) llvm += v;
   const table = (title, entries) => {
     const max = Math.max(...entries.map((e) => e[1]), 1);
     const rows = entries.map(([k, v]) =>
@@ -65,11 +74,11 @@ STATS_SCRIPT = """
     "<p class='big'>" + n(s.total) + "</p>" +
     "<p class='muted'>Downloads of every binary and archive of every release, " +
     "as counted by GitHub on " + day + ". Checksums are not counted, and downloads " +
-    "by CI jobs are. " + n(s.llvm_releases) + " are from the per-version " +
-    "<code>llvm-*</code> releases, " + n(s.combined_releases) + " from the " +
+    "by CI jobs are. " + n(llvm) + " are from the per-version " +
+    "<code>llvm-*</code> releases, " + n(s.total - llvm) + " from the " +
     "releases with every version (the latest release and those before 2026-10). " +
     "<a href='" + esc(STATS_URL) +
-    "'>stats.json</a> has the counts by tool and release.</p>" +
+    "'>stats.json</a> has the counts by release.</p>" +
     "<div class='stats-grid'>" + table("LLVM", majors) +
     table("Platform", platforms) + "</div>";
 })();

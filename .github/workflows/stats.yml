@@ -1,9 +1,9 @@
 name: Stats
 
-# Adds up the download counts of every release (download_stats.py) and
-# commits stats.json and history.csv to the download-stats branch, where the
-# download page and the README badge read them. GitHub keeps only running
-# totals, so history.csv gets one row per day from the first run on.
+# Records the download counts of every release once a day: stats.json and
+# history.csv on the download-stats branch, read by the download page and the
+# README badge. GitHub keeps only running totals, so history.csv gets one row
+# per day from the first run on.
 
 on:
   schedule:
@@ -14,85 +14,28 @@ on:
     branches: [ master ]
     paths:
       - ".github/workflows/stats.yml"
-      - "download_stats.py"
 
 permissions: {}
 
 concurrency:
-  # One group for every run that commits to the branch, whatever its ref, so
-  # that two runs never write history.csv at the same time.
+  # One group for every run that commits to the branch, whatever its ref.
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-env:
-  BRANCH: download-stats
 
 jobs:
   stats:
     if: github.repository_owner == 'cpp-linter'
     runs-on: ubuntu-latest
     permissions:
-      # Commit to the download-stats branch. Pull requests only print the
-      # totals in the job summary.
+      # Commit to the download-stats branch. Pull requests only count.
       contents: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shenxianpeng/release-download-stats@09c5aae3025a781a14cd5c06b615e8e9a26f8066 # v1.0.0
         with:
-          persist-credentials: false
-
-      - name: Read the current history
-        # Only a branch that does not exist yet starts a new history. Any
-        # other failure stops the job, so that a history with only today's
-        # row never replaces the real one.
-        run: |
-          status=0
-          git ls-remote --exit-code --heads origin "refs/heads/$BRANCH" > /dev/null || status=$?
-          if [[ $status == 2 ]]; then
-            echo "No $BRANCH branch yet: starting a new history."
-          elif [[ $status == 0 ]]; then
-            git fetch --depth=1 origin "refs/heads/$BRANCH"
-            git show FETCH_HEAD:history.csv > "$RUNNER_TEMP/history.csv"
-          else
-            exit "$status"
-          fi
-
-      - name: Count the downloads
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python3 download_stats.py --output "$RUNNER_TEMP/stats" \
-            --history-in "$RUNNER_TEMP/history.csv"
-
-      - name: Commit to the ${{ env.BRANCH }} branch
-        if: github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          dir="$RUNNER_TEMP/branch"
-          git init -q "$dir"
-          cd "$dir"
-          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git config "http.https://github.com/.extraheader" "$auth"
-          git remote add origin "https://github.com/$REPO.git"
-          # The branch holds only these two files; the first run creates it.
-          status=0
-          git ls-remote --exit-code --heads origin "refs/heads/$BRANCH" > /dev/null || status=$?
-          if [[ $status == 2 ]]; then
-            git checkout -q --orphan "$BRANCH"
-          elif [[ $status == 0 ]]; then
-            git fetch -q --depth=1 origin "refs/heads/$BRANCH"
-            git checkout -q -B "$BRANCH" FETCH_HEAD
-          else
-            exit "$status"
-          fi
-          cp "$RUNNER_TEMP/stats/stats.json" "$RUNNER_TEMP/stats/history.csv" .
-          git add stats.json history.csv
-          if git diff --cached --quiet; then
-            echo "No change."
-            exit 0
-          fi
-          git -c user.name="github-actions[bot]" \
-            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit -q -m "Download counts of $(date -u +%F)"
-          git push -q origin "HEAD:refs/heads/$BRANCH"
+          # Checksums, versions.json, BUILDINFO.json and the license are
+          # downloaded next to a binary, not instead of one.
+          exclude: '(^SHA512SUMS$|\.sha512sum$|\.json$|^LICENSE\.TXT$|\.txt$)'
+          # clang-format-23_linux-amd64, clang-tools-23_macos-arm64.tar.gz,
+          # clang-resource-headers-23.tar.gz, clang-format-12.0.1_linux-amd64
+          group: '-(?P<major>\d+)(?:\.\d+)*(?:_(?P<platform>[a-z0-9]+(?:-[a-z0-9]+)+))?(?:\.exe|\.tar\.gz|\.tar\.xz|\.zip)?$'
+          publish: ${{ github.event_name != 'pull_request' }}
