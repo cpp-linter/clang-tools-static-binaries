@@ -23,7 +23,8 @@ Subcommands (all are called from .github/workflows/build.yml):
                 already published the release, and delete drafts that a
                 failed attempt left behind.
 * ``version`` - publish one version release from the build artifacts.
-* ``index``   - write index.json and index.html from the version releases.
+* ``index``   - write index.json, versions.ndjson and index.html from the
+                version releases.
 
 Every step can run again: re-running the failed jobs of a workflow run skips
 the versions that an earlier attempt published, instead of publishing them
@@ -845,6 +846,19 @@ def choose_tags(releases: dict[str, str], published: set[str]) -> dict[str, str]
     return tags
 
 
+def published_releases() -> list[dict]:
+    """Every published release: tag, publication time and files (name, size, url)."""
+    out = gh(
+        "api",
+        "--paginate",
+        "repos/{owner}/{repo}/releases?per_page=100",
+        "--jq",
+        ".[] | select(.draft == false) | {tag: .tag_name, published_at,"
+        " assets: [.assets[] | {name, size, url: .browser_download_url}]}",
+    )
+    return [json.loads(line) for line in out.splitlines() if line.strip()]
+
+
 def release_assets(tag: str) -> dict[str, dict]:
     """Name -> {url, size} for every file of release *tag*."""
     out = gh(
@@ -910,6 +924,72 @@ def asset_entry(
         "size": asset["size"],
         "sha512": sums[name],
     }
+
+
+def release_files(version: str, assets: dict[str, dict], sums: dict[str, str]):
+    """The files of one ``llvm-*`` release that a tool would download.
+
+    Yields one artifact per tool binary, per archive with everything, and for
+    clang's headers and the helper scripts, each with its SHA-512 from the
+    release's SHA512SUMS. Files without a checksum are left out.
+    """
+    major = version.split(".")[0]
+    for tool in build.TOOLS:
+        for platform_name in PLATFORM_NAMES:
+            exe = ".exe" if platform_name.startswith("windows") else ""
+            name = f"{tool}-{major}_{platform_name}{exe}"
+            if (entry := asset_entry(assets, sums, name)) is not None:
+                yield {"kind": "tool", "tool": tool, "platform": platform_name}, entry
+    for platform_name in PLATFORM_NAMES:
+        name = bundle_name(major, platform_name)
+        if (entry := asset_entry(assets, sums, name)) is not None:
+            yield {"kind": "bundle", "platform": platform_name}, entry
+    for kind, name in (
+        ("resource_headers", build.resource_headers_name(major)),
+        ("scripts", build.scripts_name(major)),
+    ):
+        if (entry := asset_entry(assets, sums, name)) is not None:
+            yield {"kind": kind, "platform": "any"}, entry
+
+
+def build_versions(releases: list[dict], sums: dict[str, dict[str, str]]) -> list[dict]:
+    """versions.ndjson: one entry per ``llvm-*`` release, newest first.
+
+    Unlike index.json, which lists the current release of each LLVM major,
+    this lists every release ever published, so that a tool can find and
+    check the files of any version, such as 21.1.0, without reading the
+    GitHub API. Releases never change, so a line, once written, never
+    changes either: new releases only add lines. The current release of each
+    major is the one index.json names. The
+    fields follow Astral's versions format (github.com/astral-sh/versions),
+    with SHA-512 instead of SHA-256.
+    """
+    entries = []
+    for release in releases:
+        tag = release["tag"]
+        match = re.fullmatch(r"llvm-(\d+(?:\.\d+)*)(?:-(\d+))?", tag)
+        if not match:
+            continue
+        version = match.group(1)
+        assets = {a["name"]: a for a in release["assets"]}
+        artifacts = []
+        for what, entry in release_files(version, assets, sums.get(tag, {})):
+            name = entry["name"]
+            archive = "tar.gz" if name.endswith(".tar.gz") else None
+            artifacts.append(what | entry | {"archive_format": archive})
+        if not artifacts:
+            continue
+        entries.append(
+            {
+                "version": version,
+                "revision": int(match.group(2) or 1),
+                "tag": tag,
+                "date": release["published_at"],
+                "artifacts": artifacts,
+            }
+        )
+    entries.sort(key=lambda e: (e["date"], e["tag"]), reverse=True)
+    return entries
 
 
 def build_index(
@@ -1002,6 +1082,18 @@ def cmd_index(args: argparse.Namespace) -> None:
     (out / "index.json").write_text(
         json.dumps(index, indent=2) + "\n", encoding="utf-8"
     )
+    llvm_releases = [r for r in published_releases() if r["tag"].startswith("llvm-")]
+    for release in llvm_releases:
+        if release["tag"] not in sums and any(
+            a["name"] == "SHA512SUMS" for a in release["assets"]
+        ):
+            sums[release["tag"]] = release_sums(release["tag"])
+    versions = build_versions(llvm_releases, sums)
+    (out / "versions.ndjson").write_text(
+        "".join(json.dumps(e, separators=(",", ":")) + "\n" for e in versions),
+        encoding="utf-8",
+    )
+    print(f"versions.ndjson: {len(versions)} releases")
     others = download_page.other_sources(list(index["versions"]))
     for source, versions in others.items():
         found = ", ".join(sorted(versions, key=int)) if versions else "not read"
@@ -1011,7 +1103,7 @@ def cmd_index(args: argparse.Namespace) -> None:
     )
     for version, tag in tags.items():
         print(f"LLVM {version}: {tag}")
-    print(f"Wrote {out / 'index.json'} and {out / 'index.html'}")
+    print(f"Wrote index.json, versions.ndjson and index.html to {out}")
 
 
 def main() -> None:

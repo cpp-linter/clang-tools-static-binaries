@@ -312,13 +312,15 @@ jobs:
         run: |
           python3 publish.py index --output site
           python3 -c "import json; d = json.load(open('site/index.json')); print(json.dumps({v: i['tag'] for v, i in d['versions'].items()}, indent=2))"
-      - name: Attest build provenance of index.json
+      - name: Attest build provenance of index.json and versions.ndjson
         # `gh attestation verify index.json --repo <this repository>` shows
         # which workflow run wrote the index that downstream tools read.
         if: github.ref == 'refs/heads/master' && !inputs.dry-run
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: site/index.json
+          subject-path: |
+            site/index.json
+            site/versions.ndjson
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site

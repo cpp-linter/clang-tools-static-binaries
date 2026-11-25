@@ -159,6 +159,23 @@ It also has `platforms`, the minimum LLVM version of each tool under `tools`, an
 
 The files of an earlier release have the same names as those of the current one, so replace the tag in a URL from `tools`, and check the download against that release's `SHA512SUMS`. An earlier release may lack files that were added later, such as the headers archive, the helper scripts or the archive with everything.
 
+### `versions.ndjson`
+
+[`versions.ndjson`](https://cpp-linter.github.io/clang-tools-static-binaries/versions.ndjson) lists every `llvm-*` release ever published, newest first, one JSON object per line, in the format of Astral's [versions](https://github.com/astral-sh/versions) files with SHA-512 instead of SHA-256. Use it to find and check the files of any version, such as 21.1.0 or an earlier build of it, without the GitHub API:
+
+```json
+{"version":"23.1.6","revision":1,"tag":"llvm-23.1.6","date":"2026-11-24T07:39:19Z","artifacts":[{"kind":"tool","tool":"clang-format","platform":"linux-amd64","name":"clang-format-23_linux-amd64","url":"https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/llvm-23.1.6/clang-format-23_linux-amd64","size":4531544,"sha512":"...","archive_format":null}]}
+```
+
+`kind` is `tool`, `bundle` (the [archive with everything](#everything-for-one-platform-in-one-archive)), `resource_headers` or `scripts`; the last two have the platform `any`. `revision` is 2 or more for a [rebuild](#one-release-per-llvm-version). Releases never change, so neither does a line once written; new releases add lines. Which release is current for each LLVM major is in [`index.json`](#indexjson). The file has a build provenance attestation, like `index.json`.
+
+```bash
+curl -fsSL https://cpp-linter.github.io/clang-tools-static-binaries/versions.ndjson \
+  | jq -r 'select(.version == "21.1.0") | .artifacts[]
+           | select(.tool == "clang-format" and .platform == "linux-amd64") | .url' \
+  | head -n 1
+```
+
 ### Retired versions
 
 The supported versions are a **rolling window of the latest LLVM major versions**. Older versions are retired from time to time to keep build times manageable and maintenance sustainable. The window has no fixed size, and adding a version does not always retire the oldest one. Retiring a version is a **build-time and storage decision**, not a statement about the quality of that LLVM release.
@@ -185,7 +202,7 @@ Releases before 2026.06.29 have a `.sha512sum` file next to each binary instead 
 2. On every push to `master`, the [Build workflow](.github/workflows/build.yml) builds each version that has no release yet on all six platforms. The build jobs get no access token.
 3. [`acceptance.py`](acceptance.py) installs the binaries of every platform with clang's headers, the way users get them, and runs every tool on test code. A version is published only when every platform passes.
 4. The workflow writes `BUILDINFO.json`, the archives and `SHA512SUMS`, signs a [build provenance attestation](SECURITY.md#checking-where-a-binary-was-built) for every file, and publishes the release `llvm-<version>`. Published releases never change.
-5. It writes [`index.json`](#indexjson), attests it and publishes it on GitHub Pages, together with the [download page](https://cpp-linter.github.io/clang-tools-static-binaries/).
+5. It writes [`index.json`](#indexjson) and [`versions.ndjson`](#versionsndjson), attests them and publishes them on GitHub Pages, together with the [download page](https://cpp-linter.github.io/clang-tools-static-binaries/).
 
 A maintainer can rebuild a version by hand, giving the reason. The rebuild becomes a new release with a revision suffix (`llvm-22.1.8-2`), whose notes say which release it replaces and why, and `index.json` moves to it.
 
