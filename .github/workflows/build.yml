@@ -327,6 +327,51 @@ jobs:
           # One name per attempt: a re-run of failed jobs uploads the pages
           # again, and deploy-pages refuses a run with two artifacts of one name.
           name: github-pages-${{ github.run_attempt }}
+  compat-release:
+    # Links to releases/latest/download/<file> and tools that read
+    # versions.json from the latest release expect one release with every
+    # version, as before 2026-10. When the current release of a version
+    # changes, this copies the binaries of the current release of every
+    # version into a new compatibility release, under the same names, and
+    # marks it as the latest release. See publish.py.
+    needs: [plan, publish-version]
+    if: >-
+      always() && github.event_name != 'pull_request'
+      && (github.ref == 'refs/heads/master' || inputs.dry-run)
+      && needs.plan.result == 'success'
+    permissions:
+      contents: write
+      # For the build provenance attestations of versions.json and SHA512SUMS.
+      id-token: write
+      attestations: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check whether the latest release has the current binaries
+        id: compat
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 publish.py compat-prepare --output "$RUNNER_TEMP/compat" --commit "$GITHUB_SHA"
+          cat "$RUNNER_TEMP/compat/versions.json"
+      - name: Attest build provenance of versions.json and SHA512SUMS
+        # The binaries keep the attestations of the builds that made them.
+        if: >-
+          steps.compat.outputs.needed == 'true'
+          && github.ref == 'refs/heads/master' && !inputs.dry-run
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ runner.temp }}/compat/versions.json
+            ${{ runner.temp }}/compat/SHA512SUMS
+      - name: Publish ${{ steps.compat.outputs.tag }} as the latest release
+        if: steps.compat.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 publish.py compat-publish --dir "$RUNNER_TEMP/compat" $DRY_RUN
   deploy-index:
     needs: index
     if: >-

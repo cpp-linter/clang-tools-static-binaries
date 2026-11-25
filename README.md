@@ -192,7 +192,9 @@ Binaries for retired versions remain available in their releases:
 
 ### Releases before per-version releases
 
-Until 2026.09.01, every release held all versions, and was named after its date or commit (for example `2026.09.01-5fb8802d`). These releases stay available. [`2026.09.01-5fb8802d`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/tag/2026.09.01-5fb8802d) is still marked as the latest release on GitHub, because older versions of cpp-linter and its installers download from `releases/latest`; those links keep working with the binaries they had. New builds are only in the `llvm-*` releases and in `index.json`.
+Until 2026.09.01, every release held all versions, and was named after its date or commit (for example `2026.09.01-5fb8802d`). These releases stay available.
+
+Older versions of cpp-linter and its installers, and many workflows, download from `releases/latest/download/<file>` (such as `clang-format-20_linux-amd64`) or read `versions.json` from the latest release. For them, the latest release on GitHub is a **compatibility release**, named like the dated releases (`2026.11.25-1a2b3c4d`): the binaries of the current release of every version, with the same file names, `versions.json` and `SHA512SUMS`. Nothing in it is built again: each binary is copied unchanged from its `llvm-*` release, so it has the same SHA-512 and the same [attestation](SECURITY.md#checking-where-a-binary-was-built). A new compatibility release is published whenever the current release of a version changes. It has no headers, scripts or archives with everything; to pin a version, use its `llvm-*` release or [`index.json`](#indexjson).
 
 Releases before 2026.06.29 have a `.sha512sum` file next to each binary instead of `SHA512SUMS`. LLVM 7 to 10 were built only for `linux-amd64`, `macosx-amd64` and `windows-amd64`.
 
@@ -203,6 +205,7 @@ Releases before 2026.06.29 have a `.sha512sum` file next to each binary instead 
 3. [`acceptance.py`](acceptance.py) installs the binaries of every platform with clang's headers, the way users get them, and runs every tool on test code. A version is published only when every platform passes.
 4. The workflow writes `BUILDINFO.json`, the archives and `SHA512SUMS`, signs a [build provenance attestation](SECURITY.md#checking-where-a-binary-was-built) for every file, and publishes the release `llvm-<version>`. Published releases never change.
 5. It writes [`index.json`](#indexjson) and [`versions.ndjson`](#versionsndjson), attests them and publishes them on GitHub Pages, together with the [download page](https://cpp-linter.github.io/clang-tools-static-binaries/).
+6. When the current release of a version changed, it publishes a new [compatibility release](#releases-before-per-version-releases) and marks it as the latest release.
 
 A maintainer can rebuild a version by hand, giving the reason. The rebuild becomes a new release with a revision suffix (`llvm-22.1.8-2`), whose notes say which release it replaces and why, and `index.json` moves to it.
 

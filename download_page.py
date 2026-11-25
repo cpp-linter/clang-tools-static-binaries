@@ -66,8 +66,9 @@ STATS_SCRIPT = """
     "<p class='muted'>Downloads of every binary and archive of every release, " +
     "as counted by GitHub on " + day + ". Checksums are not counted, and downloads " +
     "by CI jobs are. " + n(s.llvm_releases) + " are from the per-version " +
-    "<code>llvm-*</code> releases, " + n(s.earlier_releases) + " from the earlier " +
-    "releases that held every version. <a href='" + esc(STATS_URL) +
+    "<code>llvm-*</code> releases, " + n(s.combined_releases) + " from the " +
+    "releases with every version (the latest release and those before 2026-10). " +
+    "<a href='" + esc(STATS_URL) +
     "'>stats.json</a> has the counts by tool and release.</p>" +
     "<div class='stats-grid'>" + table("LLVM", majors) +
     table("Platform", platforms) + "</div>";

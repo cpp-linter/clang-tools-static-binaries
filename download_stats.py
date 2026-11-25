@@ -69,7 +69,7 @@ ARCHIVES = {
     "clang-resource-headers": "clang's headers",
     "clang-tools-scripts": "helper scripts",
 }
-HISTORY_FIELDS = ["date", "total", "llvm_releases", "earlier_releases"]
+HISTORY_FIELDS = ["date", "total", "llvm_releases", "combined_releases"]
 
 
 def fetch_releases(repo: str) -> list[dict]:
@@ -126,7 +126,7 @@ def count(releases: list[dict], repo: str, now: datetime) -> dict:
     by_platform: Counter[str] = Counter()
     by_tool: Counter[str] = Counter()
     per_release = []
-    llvm = earlier = 0
+    llvm = combined = 0
     for release in releases:
         if release.get("draft"):
             continue
@@ -146,7 +146,7 @@ def count(releases: list[dict], repo: str, now: datetime) -> dict:
         if tag.startswith("llvm-"):
             llvm += downloads
         else:
-            earlier += downloads
+            combined += downloads
         per_release.append(
             {
                 "tag": tag,
@@ -158,7 +158,7 @@ def count(releases: list[dict], repo: str, now: datetime) -> dict:
     def ranked(counter: Counter[str]) -> dict[str, int]:
         return dict(counter.most_common())
 
-    total = llvm + earlier
+    total = llvm + combined
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -167,8 +167,9 @@ def count(releases: list[dict], repo: str, now: datetime) -> dict:
         "total_short": short(total),
         # Releases named llvm-<version>, one per LLVM version (since 2026-10).
         "llvm_releases": llvm,
-        # The releases before that, which held every version.
-        "earlier_releases": earlier,
+        # Releases that hold every version: the dated ones before 2026-10
+        # and the compatibility releases that took their place.
+        "combined_releases": combined,
         "by_major": dict(
             sorted(by_major.items(), key=lambda item: int(item[0]), reverse=True)
         ),
@@ -198,7 +199,7 @@ def summary(stats: dict) -> str:
         "",
         (
             f"Per-version `llvm-*` releases: {stats['llvm_releases']:,}; "
-            f"earlier releases: {stats['earlier_releases']:,}. "
+            f"releases with every version: {stats['combined_releases']:,}. "
             "Checksums and metadata files are not counted."
         ),
         "",
