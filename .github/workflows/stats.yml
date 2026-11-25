@@ -1,0 +1,41 @@
+name: Stats
+
+# Records the download counts of every release once a day: stats.json and
+# history.csv on the download-stats branch, read by the download page and the
+# README badge. GitHub keeps only running totals, so history.csv gets one row
+# per day from the first run on.
+
+on:
+  schedule:
+    # Daily at 05:20 UTC
+    - cron: '20 5 * * *'
+  workflow_dispatch:
+  pull_request:
+    branches: [ master ]
+    paths:
+      - ".github/workflows/stats.yml"
+
+permissions: {}
+
+concurrency:
+  # One group for every run that commits to the branch, whatever its ref.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  stats:
+    if: github.repository_owner == 'cpp-linter'
+    runs-on: ubuntu-latest
+    permissions:
+      # Commit to the download-stats branch. Pull requests only count.
+      contents: write
+    steps:
+      - uses: shenxianpeng/release-download-stats@09c5aae3025a781a14cd5c06b615e8e9a26f8066 # v1.0.0
+        with:
+          # Checksums, versions.json, BUILDINFO.json and the license are
+          # downloaded next to a binary, not instead of one.
+          exclude: '(^SHA512SUMS$|\.sha512sum$|\.json$|^LICENSE\.TXT$|\.txt$)'
+          # clang-format-23_linux-amd64, clang-tools-23_macos-arm64.tar.gz,
+          # clang-resource-headers-23.tar.gz, clang-format-12.0.1_linux-amd64
+          group: '-(?P<major>\d+)(?:\.\d+)*(?:_(?P<platform>[a-z0-9]+(?:-[a-z0-9]+)+))?(?:\.exe|\.tar\.gz|\.tar\.xz|\.zip)?$'
+          publish: ${{ github.event_name != 'pull_request' }}

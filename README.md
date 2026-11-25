@@ -1,6 +1,7 @@
 # clang-tools-static-binaries
 
 [![LLVM](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcpp-linter.github.io%2Fclang-tools-static-binaries%2Findex.json&query=%24.latest_version&label=LLVM&labelColor=454a63&color=007ec6)](https://cpp-linter.github.io/clang-tools-static-binaries/)
+[![downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcpp-linter%2Fclang-tools-static-binaries%2Fdownload-stats%2Fstats.json&query=%24.total_short&label=downloads&labelColor=454a63&color=007ec6)](https://cpp-linter.github.io/clang-tools-static-binaries/#downloads)
 [![ci](https://img.shields.io/github/actions/workflow/status/cpp-linter/clang-tools-static-binaries/build.yml?branch=master&label=ci&labelColor=454a63)](https://github.com/cpp-linter/clang-tools-static-binaries/actions/workflows/build.yml)
 [![part of cpp-linter](https://img.shields.io/badge/part%20of-cpp--linter-ffc20a?labelColor=454a63)](https://cpp-linter.github.io/)
 
@@ -10,7 +11,7 @@ Static binaries of clang-format, clang-tidy and other LLVM tools, so you can use
 
 ## Quick start
 
-Every LLVM version has its own release, named after the LLVM release it was built from. The [download page](https://cpp-linter.github.io/clang-tools-static-binaries/) lists the current release of every version and links to each file. It also shows which versions LLVM, PyPI, conda-forge and Homebrew have, with an install command for each source.
+Every LLVM version has its own release, named after the LLVM release it was built from. The [download page](https://cpp-linter.github.io/clang-tools-static-binaries/) lists the current release of every version and links to each file. It also shows which versions LLVM, PyPI, conda-forge and Homebrew have, with an install command for each source. Its [Downloads](https://cpp-linter.github.io/clang-tools-static-binaries/#downloads) section shows how often the files of all releases were downloaded, from counts that the [Stats workflow](.github/workflows/stats.yml) adds up every day (`stats.json` and `history.csv` on the [`download-stats`](https://github.com/cpp-linter/clang-tools-static-binaries/tree/download-stats) branch).
 
 To download clang-format 23 for Linux x86-64, check it and run it:
 
@@ -158,6 +159,23 @@ It also has `platforms`, the minimum LLVM version of each tool under `tools`, an
 
 The files of an earlier release have the same names as those of the current one, so replace the tag in a URL from `tools`, and check the download against that release's `SHA512SUMS`. An earlier release may lack files that were added later, such as the headers archive, the helper scripts or the archive with everything.
 
+### `versions.ndjson`
+
+[`versions.ndjson`](https://cpp-linter.github.io/clang-tools-static-binaries/versions.ndjson) lists every `llvm-*` release ever published, newest first, one JSON object per line, in the format of Astral's [versions](https://github.com/astral-sh/versions) files with SHA-512 instead of SHA-256. Use it to find and check the files of any version, such as 21.1.0 or an earlier build of it, without the GitHub API:
+
+```json
+{"version":"23.1.6","revision":1,"tag":"llvm-23.1.6","date":"2026-11-24T07:39:19Z","artifacts":[{"kind":"tool","tool":"clang-format","platform":"linux-amd64","name":"clang-format-23_linux-amd64","url":"https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/llvm-23.1.6/clang-format-23_linux-amd64","size":4531544,"sha512":"...","archive_format":null}]}
+```
+
+`kind` is `tool`, `bundle` (the [archive with everything](#everything-for-one-platform-in-one-archive)), `resource_headers` or `scripts`; the last two have the platform `any`. `revision` is 2 or more for a [rebuild](#one-release-per-llvm-version). Releases never change, so neither does a line once written; new releases add lines. Which release is current for each LLVM major is in [`index.json`](#indexjson). The file has a build provenance attestation, like `index.json`.
+
+```bash
+curl -fsSL https://cpp-linter.github.io/clang-tools-static-binaries/versions.ndjson \
+  | jq -r 'select(.version == "21.1.0") | .artifacts[]
+           | select(.tool == "clang-format" and .platform == "linux-amd64") | .url' \
+  | head -n 1
+```
+
 ### Retired versions
 
 The supported versions are a **rolling window of the latest LLVM major versions**. Older versions are retired from time to time to keep build times manageable and maintenance sustainable. The window has no fixed size, and adding a version does not always retire the oldest one. Retiring a version is a **build-time and storage decision**, not a statement about the quality of that LLVM release.
@@ -174,7 +192,9 @@ Binaries for retired versions remain available in their releases:
 
 ### Releases before per-version releases
 
-Until 2026.09.01, every release held all versions, and was named after its date or commit (for example `2026.09.01-5fb8802d`). These releases stay available. [`2026.09.01-5fb8802d`](https://github.com/cpp-linter/clang-tools-static-binaries/releases/tag/2026.09.01-5fb8802d) is still marked as the latest release on GitHub, because older versions of cpp-linter and its installers download from `releases/latest`; those links keep working with the binaries they had. New builds are only in the `llvm-*` releases and in `index.json`.
+Until 2026.09.01, every release held all versions, and was named after its date or commit (for example `2026.09.01-5fb8802d`). These releases stay available.
+
+Older versions of cpp-linter and its installers, and many workflows, download from `releases/latest/download/<file>` (such as `clang-format-20_linux-amd64`) or read `versions.json` from the latest release. For them, the latest release on GitHub is a **compatibility release**, named like the dated releases (`2026.11.25-1a2b3c4d`): the binaries of the current release of every version, with the same file names, `versions.json` and `SHA512SUMS`. Nothing in it is built again: each binary is copied unchanged from its `llvm-*` release, so it has the same SHA-512 and the same [attestation](SECURITY.md#checking-where-a-binary-was-built). A new compatibility release is published whenever the current release of a version changes. It has no headers, scripts or archives with everything; to pin a version, use its `llvm-*` release or [`index.json`](#indexjson).
 
 Releases before 2026.06.29 have a `.sha512sum` file next to each binary instead of `SHA512SUMS`. LLVM 7 to 10 were built only for `linux-amd64`, `macosx-amd64` and `windows-amd64`.
 
@@ -184,7 +204,8 @@ Releases before 2026.06.29 have a `.sha512sum` file next to each binary instead 
 2. On every push to `master`, the [Build workflow](.github/workflows/build.yml) builds each version that has no release yet on all six platforms. The build jobs get no access token.
 3. [`acceptance.py`](acceptance.py) installs the binaries of every platform with clang's headers, the way users get them, and runs every tool on test code. A version is published only when every platform passes.
 4. The workflow writes `BUILDINFO.json`, the archives and `SHA512SUMS`, signs a [build provenance attestation](SECURITY.md#checking-where-a-binary-was-built) for every file, and publishes the release `llvm-<version>`. Published releases never change.
-5. It writes [`index.json`](#indexjson), attests it and publishes it on GitHub Pages, together with the [download page](https://cpp-linter.github.io/clang-tools-static-binaries/).
+5. It writes [`index.json`](#indexjson) and [`versions.ndjson`](#versionsndjson), attests them and publishes them on GitHub Pages, together with the [download page](https://cpp-linter.github.io/clang-tools-static-binaries/).
+6. When the current release of a version changed, it publishes a new [compatibility release](#releases-before-per-version-releases) and marks it as the latest release.
 
 A maintainer can rebuild a version by hand, giving the reason. The rebuild becomes a new release with a revision suffix (`llvm-22.1.8-2`), whose notes say which release it replaces and why, and `index.json` moves to it.
 

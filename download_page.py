@@ -24,6 +24,65 @@ USER_AGENT = (
     "clang-tools-static-binaries"
     " (+https://github.com/cpp-linter/clang-tools-static-binaries)"
 )
+# The download counts, written daily by the Stats workflow to
+# the download-stats branch. The page reads them when it is viewed, so they
+# stay current between releases.
+STATS_URL = "https://raw.githubusercontent.com/{repo}/download-stats/stats.json"
+# Fills the Downloads section and the total under the title from stats.json.
+# Without it (no JavaScript, or the file cannot be read) the section keeps
+# its link to the file.
+STATS_SCRIPT = """
+(async () => {
+  let s;
+  try {
+    const r = await fetch(STATS_URL, { cache: "no-cache" });
+    if (!r.ok) return;
+    s = await r.json();
+  } catch (e) {
+    return;
+  }
+  const n = (x) => x.toLocaleString("en-US");
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const day = s.generated_at.slice(0, 10);
+  const total = document.getElementById("download-total");
+  total.textContent = n(s.total) + " downloads from GitHub releases, as of " + day + ".";
+  total.hidden = false;
+  // Integer keys ("23") lose their order in a JS object, so sort again.
+  const majors = Object.entries(s.groups.major || {}).sort((a, b) => b[0] - a[0]);
+  // Platform names of the releases before 2026.06.
+  const alias = { "macosx-amd64": "macos-amd64", "macos-intel-amd64": "macos-amd64",
+    "macosx-arm64": "macos-arm64" };
+  const byPlatform = {};
+  for (const [k, v] of Object.entries(s.groups.platform || {})) {
+    const name = alias[k] || k;
+    byPlatform[name] = (byPlatform[name] || 0) + v;
+  }
+  const platforms = Object.entries(byPlatform).sort((a, b) => b[1] - a[1]);
+  let llvm = 0;
+  for (const [tag, v] of Object.entries(s.releases)) if (tag.startsWith("llvm-")) llvm += v;
+  const table = (title, entries) => {
+    const max = Math.max(...entries.map((e) => e[1]), 1);
+    const rows = entries.map(([k, v]) =>
+      "<tr><th>" + esc(k) + "</th><td class='num'>" + n(v) +
+      "</td><td class='bar'><span style='width:" + (100 * v / max).toFixed(1) +
+      "%'></span></td></tr>").join("");
+    return "<div class='scroll'><table class='stats'><thead><tr><th>" + title +
+      "</th><th class='num'>Downloads</th><th></th></tr></thead><tbody>" + rows +
+      "</tbody></table></div>";
+  };
+  document.getElementById("download-stats").innerHTML =
+    "<p class='big'>" + n(s.total) + "</p>" +
+    "<p class='muted'>Downloads of every binary and archive of every release, " +
+    "as counted by GitHub on " + day + ". Checksums are not counted, and downloads " +
+    "by CI jobs are. " + n(llvm) + " are from the per-version " +
+    "<code>llvm-*</code> releases, " + n(s.total - llvm) + " from the " +
+    "releases with every version (the latest release and those before 2026-10). " +
+    "<a href='" + esc(STATS_URL) +
+    "'>stats.json</a> has the counts by release.</p>" +
+    "<div class='stats-grid'>" + table("LLVM", majors) +
+    table("Platform", platforms) + "</div>";
+})();
+"""
 # The page's styles, inlined so that index.html is one file.
 PAGE_CSS = Path(__file__).with_name("download_page.css").read_text(encoding="utf-8")
 
@@ -441,6 +500,8 @@ def render_html(
             "for the headers.</p>\n"
         )
 
+    stats_url = STATS_URL.format(repo=repo)
+    stats_script = STATS_SCRIPT.replace("STATS_URL", json.dumps(stats_url))
     oldest = min(majors, key=int)
     nav = "".join(f'<a href="#llvm-{esc(v)}">{esc(v)}</a>' for v in majors)
     return f"""<!doctype html>
@@ -466,6 +527,7 @@ clang's headers, which the archive with everything for a platform includes. Buil
 <a href="https://github.com/{esc(repo)}">{esc(repo)}</a>; tools that download
 these files should read <a href="index.json">index.json</a>.</p>
 <nav class="muted"><span>Jump to LLVM</span>{nav}</nav>
+<p class="muted" id="download-total" hidden></p>
 
 <h2 id="versions">Versions</h2>
 {versions_table}
@@ -483,6 +545,10 @@ curl -fLO {esc(index["versions"][latest]["sha512sums_url"])}
 sha512sum -c SHA512SUMS --ignore-missing
 gh attestation verify {esc(first["name"])} --repo {esc(repo)}</code></pre>
 
+<h2 id="downloads">Downloads</h2>
+<div id="download-stats"><p class="muted">The download counts are in
+<a href="{esc(stats_url)}">stats.json</a>.</p></div>
+
 <h2 id="files">Files</h2>
 <p class="muted">Sizes link to the files. Windows files end in <code>.exe</code>.</p>
 {headers_note}{"".join(sections)}
@@ -490,5 +556,6 @@ gh attestation verify {esc(first["name"])} --repo {esc(repo)}</code></pre>
 </main>
 <footer class="foot"><div>Part of <a href="https://cpp-linter.github.io/">cpp-linter</a>.
 Generated {esc(index["generated_at"])}.</div></footer>
+<script>{stats_script}</script>
 </body></html>
 """

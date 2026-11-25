@@ -231,3 +231,39 @@ td.cmd code {
 .install td.cmd {
   min-width: 32rem;
 }
+
+/* Downloads: the total and two tables with a bar per row. */
+
+.big {
+  margin: 0.8rem 0 0;
+  font: 760 2.3rem/1.1 "Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.stats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 2.5rem;
+}
+
+.stats .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats .bar {
+  width: 9rem;
+}
+
+.stats .bar span {
+  display: block;
+  height: 0.55rem;
+  border-radius: 3px;
+  background: var(--link);
+  opacity: 0.75;
+}
+
+.stats th,
+.stats td {
+  vertical-align: middle;
+}

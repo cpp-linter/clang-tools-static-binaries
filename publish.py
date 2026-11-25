@@ -7,7 +7,7 @@ workflow runs only build versions that do not have a release yet. A rebuild
 of the same source gets a revision suffix (``llvm-22.1.8-2``), like a Debian
 package revision.
 
-There is no release that holds every version. Instead, ``index.json`` lists
+No build holds every version. Instead, ``index.json`` lists
 every file of every supported version with its URL, size and SHA-512, and is
 published on GitHub Pages with a download page, ``index.html`` (see
 download_page.py). Downstream tools read the index, the way uv reads its
@@ -23,7 +23,13 @@ Subcommands (all are called from .github/workflows/build.yml):
                 already published the release, and delete drafts that a
                 failed attempt left behind.
 * ``version`` - publish one version release from the build artifacts.
-* ``index``   - write index.json and index.html from the version releases.
+* ``index``   - write index.json, versions.ndjson and index.html from the
+                version releases.
+* ``compat-prepare``, ``compat-publish`` - publish a compatibility release:
+                the binaries of the current release of every version under
+                the names of the dated releases that held every version,
+                marked as the latest release, so that links to
+                ``releases/latest/download/<file>`` keep working.
 
 Every step can run again: re-running the failed jobs of a workflow run skips
 the versions that an earlier attempt published, instead of publishing them
@@ -845,6 +851,19 @@ def choose_tags(releases: dict[str, str], published: set[str]) -> dict[str, str]
     return tags
 
 
+def published_releases() -> list[dict]:
+    """Every published release: tag, publication time and files (name, size, url)."""
+    out = gh(
+        "api",
+        "--paginate",
+        "repos/{owner}/{repo}/releases?per_page=100",
+        "--jq",
+        ".[] | select(.draft == false) | {tag: .tag_name, published_at,"
+        " assets: [.assets[] | {name, size, url: .browser_download_url}]}",
+    )
+    return [json.loads(line) for line in out.splitlines() if line.strip()]
+
+
 def release_assets(tag: str) -> dict[str, dict]:
     """Name -> {url, size} for every file of release *tag*."""
     out = gh(
@@ -912,6 +931,85 @@ def asset_entry(
     }
 
 
+def release_files(version: str, assets: dict[str, dict], sums: dict[str, str]):
+    """The files of one ``llvm-*`` release that a tool would download.
+
+    Yields one artifact per tool binary, per archive with everything, and for
+    clang's headers and the helper scripts, each with its SHA-512 from the
+    release's SHA512SUMS. Files without a checksum are left out.
+    """
+    major = version.split(".")[0]
+    for tool in build.TOOLS:
+        for platform_name in PLATFORM_NAMES:
+            exe = ".exe" if platform_name.startswith("windows") else ""
+            name = f"{tool}-{major}_{platform_name}{exe}"
+            if (entry := asset_entry(assets, sums, name)) is not None:
+                yield {"kind": "tool", "tool": tool, "platform": platform_name}, entry
+    for platform_name in PLATFORM_NAMES:
+        name = bundle_name(major, platform_name)
+        if (entry := asset_entry(assets, sums, name)) is not None:
+            yield {"kind": "bundle", "platform": platform_name}, entry
+    for kind, name in (
+        ("resource_headers", build.resource_headers_name(major)),
+        ("scripts", build.scripts_name(major)),
+    ):
+        if (entry := asset_entry(assets, sums, name)) is not None:
+            yield {"kind": kind, "platform": "any"}, entry
+
+
+def build_versions(releases: list[dict], sums: dict[str, dict[str, str]]) -> list[dict]:
+    """versions.ndjson: one entry per ``llvm-*`` release, newest first.
+
+    Unlike index.json, which lists the current release of each LLVM major,
+    this lists every release ever published, so that a tool can find and
+    check the files of any version, such as 21.1.0, without reading the
+    GitHub API. Releases never change, so a line, once written, never
+    changes either: new releases only add lines. The current release of each
+    major is the one index.json names. The
+    fields follow Astral's versions format (github.com/astral-sh/versions),
+    with SHA-512 instead of SHA-256.
+    """
+    entries = []
+    for release in releases:
+        tag = release["tag"]
+        match = re.fullmatch(r"llvm-(\d+(?:\.\d+)*)(?:-(\d+))?", tag)
+        if not match:
+            continue
+        version = match.group(1)
+        assets = {a["name"]: a for a in release["assets"]}
+        artifacts = []
+        for what, entry in release_files(version, assets, sums.get(tag, {})):
+            name = entry["name"]
+            archive = "tar.gz" if name.endswith(".tar.gz") else None
+            artifacts.append(what | entry | {"archive_format": archive})
+        if not artifacts:
+            continue
+        entries.append(
+            {
+                "version": version,
+                "revision": int(match.group(2) or 1),
+                "tag": tag,
+                "date": release["published_at"],
+                "artifacts": artifacts,
+            }
+        )
+    entries.sort(key=lambda e: (e["date"], e["tag"]), reverse=True)
+    return entries
+
+
+def tools_metadata() -> dict[str, dict]:
+    """Each tool with the first LLVM version that has it, where that matters."""
+    tools_info: dict[str, dict] = {}
+    for tool in build.TOOLS:
+        info: dict[str, int] = {}
+        if tool == "clang-include-cleaner":
+            info["min_llvm_version"] = build.INCLUDE_CLEANER_MIN_VERSION
+        if tool == "clang-scan-deps":
+            info["min_llvm_version"] = build.CLANG_SCAN_DEPS_MIN_VERSION
+        tools_info[tool] = info
+    return tools_info
+
+
 def build_index(
     tags: dict[str, str],
     assets: dict[str, dict[str, dict]],
@@ -965,14 +1063,7 @@ def build_index(
         older = older_releases(version, tag, published, repo)
         if older:
             versions[version]["older_releases"] = older
-    tools_info: dict[str, dict] = {}
-    for tool in build.TOOLS:
-        info: dict[str, int] = {}
-        if tool == "clang-include-cleaner":
-            info["min_llvm_version"] = build.INCLUDE_CLEANER_MIN_VERSION
-        if tool == "clang-scan-deps":
-            info["min_llvm_version"] = build.CLANG_SCAN_DEPS_MIN_VERSION
-        tools_info[tool] = info
+    tools_info = tools_metadata()
     latest = max(versions, key=int) if versions else None
     return {
         "schema_version": INDEX_SCHEMA_VERSION,
@@ -1002,6 +1093,18 @@ def cmd_index(args: argparse.Namespace) -> None:
     (out / "index.json").write_text(
         json.dumps(index, indent=2) + "\n", encoding="utf-8"
     )
+    llvm_releases = [r for r in published_releases() if r["tag"].startswith("llvm-")]
+    for release in llvm_releases:
+        if release["tag"] not in sums and any(
+            a["name"] == "SHA512SUMS" for a in release["assets"]
+        ):
+            sums[release["tag"]] = release_sums(release["tag"])
+    versions = build_versions(llvm_releases, sums)
+    (out / "versions.ndjson").write_text(
+        "".join(json.dumps(e, separators=(",", ":")) + "\n" for e in versions),
+        encoding="utf-8",
+    )
+    print(f"versions.ndjson: {len(versions)} releases")
     others = download_page.other_sources(list(index["versions"]))
     for source, versions in others.items():
         found = ", ".join(sorted(versions, key=int)) if versions else "not read"
@@ -1011,7 +1114,210 @@ def cmd_index(args: argparse.Namespace) -> None:
     )
     for version, tag in tags.items():
         print(f"LLVM {version}: {tag}")
-    print(f"Wrote {out / 'index.json'} and {out / 'index.html'}")
+    print(f"Wrote index.json, versions.ndjson and index.html to {out}")
+
+
+# ---------------------------------------------------------------------------
+# Compatibility release
+# ---------------------------------------------------------------------------
+
+# The dated releases that held every version (2026.09.01-5fb8802d and
+# earlier) and the compatibility releases that take their place.
+COMPAT_TAG = re.compile(r"\d{4}\.\d{2}\.\d{2}-[0-9a-f]{8}(?:-\d+)?")
+
+
+def compat_files(tags: dict[str, str]) -> dict[str, str]:
+    """File name -> the ``llvm-*`` release it is copied from.
+
+    The binaries of the current release of every LLVM major, under the names
+    that the dated releases used (``clang-format-20_linux-amd64``).
+    """
+    files = {}
+    for version, tag in tags.items():
+        for tool in build.active_tools(version):
+            for platform_name in PLATFORM_NAMES:
+                exe = ".exe" if platform_name.startswith("windows") else ""
+                files[f"{tool}-{version}_{platform_name}{exe}"] = tag
+    return files
+
+
+def compat_tag(day: datetime, commit: str, published: set[str]) -> str:
+    """``2026.11.25-1a2b3c4d``, like the dated releases; ``-2`` and up when
+    that tag is taken."""
+    base = f"{day:%Y.%m.%d}-{commit[:8]}"
+    tag, n = base, 1
+    while tag in published:
+        n += 1
+        tag = f"{base}-{n}"
+    return tag
+
+
+def compat_versions_json(tags: dict[str, str], tag: str, now: datetime) -> dict:
+    """versions.json in the format of the dated releases."""
+    return {
+        "built_at": now.isoformat(),
+        "release_tag": tag,
+        "llvm_versions": {v: tag_source(tags[v]) for v in sort_versions(tags)},
+        "tools": tools_metadata(),
+        "platforms": PLATFORM_NAMES,
+    }
+
+
+def compat_notes(tags: dict[str, str], repo: str) -> str:
+    """Release notes of a compatibility release."""
+    owner, name = repo.split("/")
+    index_url = f"https://{owner}.github.io/{name}/index.json"
+    majors = sort_versions(tags)
+    lines = [
+        (
+            f"The binaries of the current release of LLVM {majors[-1]} to "
+            f"{majors[0]}, for links to `releases/latest/download/<file>` and "
+            "for tools that read `versions.json` from the latest release. "
+            "Before 2026-10 every release held all versions; this release "
+            "has the same file names, so those links and tools keep working "
+            "and get the current builds."
+        ),
+        "",
+        (
+            "Nothing here is built again: each file is copied unchanged from "
+            "the release in the table, so it has the same SHA-512 and the "
+            "same build provenance attestation (`gh attestation verify <file> "
+            f"--repo {repo}`). clang's headers, the helper scripts and the "
+            "archives with everything are only in those releases."
+        ),
+        "",
+        (
+            "A new compatibility release is published, and marked as the "
+            "latest release, whenever the current release of a version "
+            "changes. To pin a version, use its `llvm-*` release or "
+            f"[index.json]({index_url})."
+        ),
+        "",
+        "| LLVM | Copied from | Source |",
+        "| ---- | ----------- | ------ |",
+    ]
+    lines += [
+        f"| {v} | [{tags[v]}](https://github.com/{repo}/releases/tag/{tags[v]}) "
+        f"| `{tag_source(tags[v])}` |"
+        for v in majors
+    ]
+    lines += [
+        "",
+        "Verify downloads with `sha512sum -c SHA512SUMS --ignore-missing`.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def latest_release_tag() -> str | None:
+    try:
+        return gh("api", "repos/{owner}/{repo}/releases/latest", "--jq", ".tag_name")
+    except subprocess.CalledProcessError:
+        return None
+
+
+def cmd_compat_prepare(args: argparse.Namespace) -> None:
+    """Decide whether a new compatibility release is needed and write its
+    versions.json, SHA512SUMS and plan.
+
+    It is needed when the latest release is not a compatibility release with
+    exactly these binaries, for example after a new ``llvm-*`` release.
+    """
+    repo = os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPO)
+    published = published_tags()
+    tags = choose_tags(build.RELEASES, published)
+    if not tags:
+        raise SystemExit("No version has a published release.")
+    sums = {tag: release_sums(tag) for tag in set(tags.values())}
+    files = compat_files(tags)
+    missing = [name for name, tag in files.items() if name not in sums[tag]]
+    if missing:
+        raise SystemExit(f"No checksum for {', '.join(missing[:6])}")
+    wanted = {name: sums[tag][name] for name, tag in files.items()}
+
+    latest = (latest_release_tag() or "").strip()
+    needed = True
+    if latest and COMPAT_TAG.fullmatch(latest):
+        needed = release_sums(latest) != wanted
+    print(f"Latest release: {latest or 'none'}")
+
+    now = datetime.now(UTC).replace(microsecond=0)
+    tag = compat_tag(now, args.commit, published) if needed else latest
+    out = Path(args.output)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "versions.json").write_text(
+        json.dumps(compat_versions_json(tags, tag, now), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    write_sums(out / "SHA512SUMS", wanted)
+    (out / "plan.json").write_text(
+        json.dumps({"tag": tag, "tags": tags, "files": files}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (out / "notes.md").write_text(compat_notes(tags, repo), encoding="utf-8")
+    if needed:
+        print(f"New compatibility release {tag}: {len(files)} binaries from")
+    else:
+        print(f"{latest} already has these {len(files)} binaries, from")
+    for version in sort_versions(tags):
+        print(f"  LLVM {version}: {tags[version]}")
+    if args.github_output:
+        with open(args.github_output, "a", encoding="utf-8") as gh_out:
+            gh_out.write(f"needed={str(needed).lower()}\n")
+            gh_out.write(f"tag={tag}\n")
+
+
+def cmd_compat_publish(args: argparse.Namespace) -> None:
+    """Publish the compatibility release that `compat-prepare` planned.
+
+    Copies the binaries one LLVM major at a time (12 GB in all, more than a
+    runner should hold at once), checks each against SHA512SUMS, and marks
+    the release as the latest one when everything is uploaded.
+    """
+    out = Path(args.dir)
+    plan = json.loads((out / "plan.json").read_text(encoding="utf-8"))
+    tag, tags, files = plan["tag"], plan["tags"], plan["files"]
+    sums = read_sums(out / "SHA512SUMS")
+    majors = sort_versions(tags)
+    title = f"{tag}: LLVM {majors[-1]} to {majors[0]} (compatibility release)"
+    print(f"Release {tag}: {len(files) + 2} files, latest=true")
+    if args.dry_run:
+        for version in majors:
+            names = [n for n, t in files.items() if t == tags[version]]
+            print(f"  [dry-run] would copy {len(names)} files from {tags[version]}")
+        return
+    delete_drafts(tag)
+    gh(
+        "release",
+        "create",
+        tag,
+        "--draft",
+        "--title",
+        title,
+        "--notes-file",
+        str(out / "notes.md"),
+        capture=False,
+    )
+    try:
+        for name in ("SHA512SUMS", "versions.json"):
+            upload_with_retry(tag, out / name)
+        for version in majors:
+            source = tags[version]
+            names = sorted(n for n, t in files.items() if t == source)
+            with tempfile.TemporaryDirectory() as tmp:
+                patterns = [arg for n in names for arg in ("-p", n)]
+                gh("release", "download", source, *patterns, "-D", tmp)
+                for name in names:
+                    path = Path(tmp) / name
+                    if sha512(path) != sums[name]:
+                        raise SystemExit(f"{source}/{name} does not match SHA512SUMS")
+                    upload_with_retry(tag, path)
+            print(f"LLVM {version}: copied {len(names)} files from {source}")
+        gh("release", "edit", tag, "--draft=false", "--latest=true", capture=False)
+    except BaseException:
+        print(f"::error::Publishing {tag} failed; deleting its draft.")
+        delete_drafts(tag)
+        raise
 
 
 def main() -> None:
@@ -1074,6 +1380,22 @@ def main() -> None:
     p.add_argument("--reason", default="", help="Why this version was built.")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_version)
+
+    p = sub.add_parser(
+        "compat-prepare",
+        help="Plan the compatibility release that is marked as the latest one.",
+    )
+    p.add_argument("--output", "-o", required=True)
+    p.add_argument("--commit", required=True, help="Commit named in the tag.")
+    p.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT"))
+    p.set_defaults(func=cmd_compat_prepare)
+
+    p = sub.add_parser(
+        "compat-publish", help="Publish the release that compat-prepare planned."
+    )
+    p.add_argument("--dir", required=True, help="The output of compat-prepare.")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_compat_publish)
 
     p = sub.add_parser("index", help="Write index.json and index.html.")
     p.add_argument("--output", "-o", default="site")
