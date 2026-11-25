@@ -49,14 +49,20 @@ NOT_COUNTED = re.compile(
     r"(^SHA512SUMS$|\.sha512sum$|\.json$|^LICENSE\.TXT$|\.txt$)", re.IGNORECASE
 )
 # <tool>-<major>[_<platform>][.exe|.tar.gz|.zip], e.g. clang-tidy-23_linux-amd64,
-# clang-tools-23_macos-arm64.tar.gz or clang-resource-headers-23.tar.gz.
+# clang-tools-23_macos-arm64.tar.gz or clang-resource-headers-23.tar.gz. Some
+# earlier releases also had files named after the full version
+# (clang-format-12.0.1_linux-amd64).
 FILE_NAME = re.compile(
-    r"^(?P<tool>[a-z][a-z-]*?)-(?P<major>\d+)"
-    r"(?:_(?P<platform>[a-z0-9]+-[a-z0-9]+))?"
+    r"^(?P<tool>[a-z][a-z-]*?)-(?P<major>\d+)(?:\.\d+)*"
+    r"(?:_(?P<platform>[a-z0-9]+(?:-[a-z0-9]+)+))?"
     r"(?P<ext>\.exe|\.tar\.gz|\.tar\.xz|\.zip)?$"
 )
 # Platform names of the releases before 2026.06.
-PLATFORM_ALIASES = {"macosx-amd64": "macos-amd64", "macosx-arm64": "macos-arm64"}
+PLATFORM_ALIASES = {
+    "macosx-amd64": "macos-amd64",
+    "macos-intel-amd64": "macos-amd64",
+    "macosx-arm64": "macos-arm64",
+}
 # Archives that hold more than one tool.
 ARCHIVES = {
     "clang-tools": "archive with everything",
